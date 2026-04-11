@@ -1,7 +1,7 @@
 import { bench, describe } from "vitest";
 
 import { emit } from "../src/emitter";
-import { esre } from "../src/index";
+import { ecmaRe } from "../src/index";
 import { parse } from "../src/parser";
 import { transform } from "../src/transformer";
 
@@ -81,8 +81,8 @@ for (const [name, sample] of Object.entries(cases)) {
       emit(transformed.ast, transformed.needsVFlag);
     });
 
-    bench(`${name}: esre`, () => {
-      esre(sample.pattern, sample.flags, sample.options);
+    bench(`${name}: ecmaRe`, () => {
+      ecmaRe(sample.pattern, sample.flags, sample.options);
     });
   });
 }

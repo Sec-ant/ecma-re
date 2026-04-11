@@ -1,4 +1,4 @@
-# esre
+# ecma-re
 
 Transpile Python `re` module regex patterns into ECMAScript `RegExp` objects.
 
@@ -17,21 +17,21 @@ Transpile Python `re` module regex patterns into ECMAScript `RegExp` objects.
 ## Installation
 
 ```bash
-npm install esre
+npm install ecma-re
 ```
 
 ## Quick Start
 
 ```ts
-import { esre } from "esre";
+import { ecmaRe } from "ecma-re";
 
 // Basic usage — returns a native RegExp
-const re = esre("(?P<year>\\d{4})-(?P<month>\\d{2})-(?P<day>\\d{2})");
+const re = ecmaRe("(?P<year>\\d{4})-(?P<month>\\d{2})-(?P<day>\\d{2})");
 const match = re.exec("2025-07-11");
 console.log(match?.groups); // { year: "2025", month: "07", day: "11" }
 
 // Python flags: case-insensitive + verbose
-const re2 = esre(
+const re2 = ecmaRe(
   `
   \\b
   (?P<word>[a-z]+)   # capture a word
@@ -42,10 +42,10 @@ const re2 = esre(
 console.log(re2.test("Hello")); // true
 
 // ASCII mode — keep ES native \w, \d, \s (no Unicode expansion)
-const re3 = esre("\\w+", "", { ascii: true });
+const re3 = ecmaRe("\\w+", "", { ascii: true });
 
 // Loose mode — degrade instead of throwing on unsupported features
-const re4 = esre("a++", "", {
+const re4 = ecmaRe("a++", "", {
   loose: true,
   onWarn: (msg) => console.warn(msg),
 });
@@ -54,10 +54,10 @@ const re4 = esre("a++", "", {
 
 ## API Reference
 
-### `esre(pattern, flags?, options?)`
+### `ecmaRe(pattern, flags?, options?)`
 
 ```ts
-function esre(pattern: string, flags?: string, options?: EsreOptions): RegExp;
+function ecmaRe(pattern: string, flags?: string, options?: EcmaReOptions): RegExp;
 ```
 
 **Parameters:**
@@ -66,16 +66,16 @@ function esre(pattern: string, flags?: string, options?: EsreOptions): RegExp;
 | --------- | ------------- | --------------------------------------------------------------- |
 | `pattern` | `string`      | Python regex pattern                                            |
 | `flags`   | `string`      | Python-style flag characters: `"i"`, `"m"`, `"s"`, `"x"`, `"a"` |
-| `options` | `EsreOptions` | Transpilation options (see below)                               |
+| `options` | `EcmaReOptions` | Transpilation options (see below)                               |
 
 **Returns:** A native `RegExp` object.
 
-**Throws:** `EsreError` on syntax errors or untranspilable features (in strict mode).
+**Throws:** `EcmaReError` on syntax errors or untranspilable features (in strict mode).
 
-### `EsreOptions`
+### `EcmaReOptions`
 
 ```ts
-interface EsreOptions {
+interface EcmaReOptions {
   ascii?: boolean;
   loose?: boolean;
   onWarn?: (msg: string) => void;
@@ -85,13 +85,13 @@ interface EsreOptions {
 | Option   | Type                    | Default             | Description                                                                                                                                                                         |
 | -------- | ----------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ascii`  | `boolean`               | `undefined` (falsy) | When falsy, Unicode mode is active: `\w`, `\d`, `\s`, `\b` expand to Unicode property classes, and the `v` flag is set. When `true`, these shorthands use ES native ASCII behavior. |
-| `loose`  | `boolean`               | `undefined` (falsy) | When falsy, strict mode is active: untranspilable features throw `EsreError`. When `true`, they degrade gracefully and emit warnings via `onWarn`.                                  |
+| `loose`  | `boolean`               | `undefined` (falsy) | When falsy, strict mode is active: untranspilable features throw `EcmaReError`. When `true`, they degrade gracefully and emit warnings via `onWarn`.                                  |
 | `onWarn` | `(msg: string) => void` | `undefined`         | Warning callback invoked in loose mode when a feature is degraded.                                                                                                                  |
 
-### `EsreError`
+### `EcmaReError`
 
 ```ts
-class EsreError extends Error {
+class EcmaReError extends Error {
   position?: number;
 }
 ```
@@ -147,15 +147,15 @@ When `ascii` is falsy (the default), the output uses the `v` flag and Unicode pr
 
 | Feature                                 | Strict (default)   | Loose (`{ loose: true }`)                |
 | --------------------------------------- | ------------------ | ---------------------------------------- |
-| `*+`, `++`, `?+` possessive quantifiers | Throws `EsreError` | Degrades to greedy                       |
-| `{m,n}+` possessive                     | Throws `EsreError` | Degrades to greedy `{m,n}`               |
-| `(?>...)` atomic group                  | Throws `EsreError` | Degrades to `(?:...)`                    |
-| `(?(id)yes\|no)` conditional            | Throws `EsreError` | Throws `EsreError` (no safe degradation) |
-| `(?L)` locale flag                      | Throws `EsreError` | Throws `EsreError`                       |
+| `*+`, `++`, `?+` possessive quantifiers | Throws `EcmaReError` | Degrades to greedy                       |
+| `{m,n}+` possessive                     | Throws `EcmaReError` | Degrades to greedy `{m,n}`               |
+| `(?>...)` atomic group                  | Throws `EcmaReError` | Degrades to `(?:...)`                    |
+| `(?(id)yes\|no)` conditional            | Throws `EcmaReError` | Throws `EcmaReError` (no safe degradation) |
+| `(?L)` locale flag                      | Throws `EcmaReError` | Throws `EcmaReError`                       |
 
 ## How It Works
 
-esre uses a three-stage compiler pipeline:
+ecma-re uses a three-stage compiler pipeline:
 
 1. **Parser** -- Recursive-descent, single-pass parser (no separate lexer) that produces a typed AST from the Python regex string. Verbose mode (`x` flag) preprocessing strips whitespace and comments before parsing.
 2. **Transformer** -- Rewrites AST nodes from Python semantics to ES semantics: resolves flags, rewrites named groups, expands Unicode shorthands, transforms anchors, and handles unsupported features based on strict/loose mode.

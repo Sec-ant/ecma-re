@@ -1,4 +1,4 @@
-import { EsreError } from "./errors";
+import { EcmaReError } from "./errors";
 import type {
   AlternationNode,
   AssertionNode,
@@ -66,7 +66,7 @@ export function transform(
       case "u":
         /* noop, Python 3 default */ break;
       case "L":
-        throw new EsreError("Locale flag (?L) is not supported");
+        throw new EcmaReError("Locale flag (?L) is not supported");
     }
   }
 
@@ -206,7 +206,7 @@ function transformGroup(node: GroupNode, ctx: TransformContext): Node {
   switch (node.kind) {
     case "atomic": {
       if (!ctx.loose) {
-        throw new EsreError("Atomic groups (?>...) are not supported");
+        throw new EcmaReError("Atomic groups (?>...) are not supported");
       }
       ctx.onWarn?.(
         "Atomic group (?>...) degraded to non-capturing group (?:...)",
@@ -223,7 +223,7 @@ function transformGroup(node: GroupNode, ctx: TransformContext): Node {
       const body = transformNode(node.body, ctx);
       // Check for locale flag
       if (node.flags?.includes("L")) {
-        throw new EsreError("Locale flag (?L) is not supported");
+        throw new EcmaReError("Locale flag (?L) is not supported");
       }
       // Map Python flags to ES flags
       let flags = "";
@@ -277,7 +277,7 @@ function transformQuantifier(
 ): Node {
   if (node.possessive) {
     if (!ctx.loose) {
-      throw new EsreError("Possessive quantifiers are not supported");
+      throw new EcmaReError("Possessive quantifiers are not supported");
     }
     ctx.onWarn?.("Possessive quantifier degraded to greedy quantifier");
     return {
@@ -580,5 +580,5 @@ function transformConditional(
   _node: ConditionalNode,
   _ctx: TransformContext,
 ): never {
-  throw new EsreError("Conditional groups (?(id)yes|no) are not supported");
+  throw new EcmaReError("Conditional groups (?(id)yes|no) are not supported");
 }

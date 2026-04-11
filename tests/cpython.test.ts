@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { EsreOptions } from "../src/index";
-import { esre } from "../src/index";
+import type { EcmaReOptions } from "../src/index";
+import { ecmaRe } from "../src/index";
 
 const SUCCEED = 0;
 const FAIL = 1;
@@ -22,16 +22,16 @@ function runTest(
   expr?: string,
   expected?: string,
   flags?: string,
-  options?: EsreOptions,
+  options?: EcmaReOptions,
 ) {
   if (outcome === SYNTAX_ERROR) {
-    expect(() => esre(pattern, flags, options)).toThrow();
+    expect(() => ecmaRe(pattern, flags, options)).toThrow();
     return;
   }
 
   let re: RegExp;
   try {
-    re = esre(pattern, flags, options);
+    re = ecmaRe(pattern, flags, options);
   } catch (e) {
     throw new Error(`Pattern /${pattern}/ should compile but threw: ${e}`);
   }
@@ -73,7 +73,7 @@ function runTest(
 }
 
 // Shorthand for ASCII mode
-const ASCII: EsreOptions = { ascii: true };
+const ASCII: EcmaReOptions = { ascii: true };
 
 describe("CPython re_tests.py port", () => {
   // ---------------------------------------------------------------------------
@@ -1267,7 +1267,7 @@ describe("CPython re_tests.py port", () => {
     });
 
     it("{1} without preceding atom is treated as literal", () => {
-      // Python re and esre treat bare {1} as a literal string
+      // Python re and ecmaRe treat bare {1} as a literal string
       runTest("{1}", "{1}", SUCCEED, "found", "{1}");
     });
 
@@ -1297,7 +1297,7 @@ describe("CPython re_tests.py port", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Category: Unsupported features (should throw EsreError)
+  // Category: Unsupported features (should throw EcmaReError)
   // ---------------------------------------------------------------------------
   describe("Unsupported features", () => {
     it("conditional group (?(1)yes|no) throws", () => {
@@ -1374,7 +1374,7 @@ describe("CPython re_tests.py port", () => {
     });
 
     it("quantifier on empty group ()*", () => {
-      const re = esre("()*");
+      const re = ecmaRe("()*");
       const m = re.exec("a");
       expect(m).not.toBeNull();
     });
@@ -1445,21 +1445,21 @@ describe("CPython re_tests.py port", () => {
     });
 
     it("(a*)* matches aaa", () => {
-      const re = esre("(a*)*");
+      const re = ecmaRe("(a*)*");
       const m = re.exec("aaa");
       expect(m).not.toBeNull();
       expect(m?.[0]).toBe("aaa");
     });
 
     it("(a*)+  matches aaa", () => {
-      const re = esre("(a*)+");
+      const re = ecmaRe("(a*)+");
       const m = re.exec("aaa");
       expect(m).not.toBeNull();
       expect(m?.[0]).toBe("aaa");
     });
 
     it("([a]*)* matches aaa", () => {
-      const re = esre("([a]*)*");
+      const re = ecmaRe("([a]*)*");
       const m = re.exec("aaa");
       expect(m).not.toBeNull();
     });
@@ -1670,7 +1670,7 @@ describe("CPython re_tests.py port", () => {
     });
 
     it("non-participating group is undefined", () => {
-      const re = esre("(a)|(b)");
+      const re = ecmaRe("(a)|(b)");
       const m = re.exec("b");
       expect(m).not.toBeNull();
       expect(m?.[1]).toBeUndefined();
@@ -2000,7 +2000,7 @@ describe("CPython re_tests.py port", () => {
     });
 
     it("((a*|b))*  on empty string", () => {
-      const re = esre("((a*|b))*");
+      const re = ecmaRe("((a*|b))*");
       const m = re.exec("");
       expect(m).not.toBeNull();
     });
@@ -2082,27 +2082,27 @@ describe("CPython re_tests.py port", () => {
   // ---------------------------------------------------------------------------
   describe("Unicode mode (default)", () => {
     it("\\d in unicode mode matches ASCII digit", () => {
-      const re = esre("\\d");
+      const re = ecmaRe("\\d");
       expect(re.test("5")).toBe(true);
     });
 
     it("\\w in unicode mode matches ASCII word char", () => {
-      const re = esre("\\w");
+      const re = ecmaRe("\\w");
       expect(re.test("a")).toBe(true);
     });
 
     it("\\s in unicode mode matches ASCII space", () => {
-      const re = esre("\\s");
+      const re = ecmaRe("\\s");
       expect(re.test(" ")).toBe(true);
     });
 
     it("output regex has v flag in unicode mode", () => {
-      const re = esre("\\w");
+      const re = ecmaRe("\\w");
       expect(re.flags).toContain("v");
     });
 
     it("output regex does not have v flag in ASCII mode", () => {
-      const re = esre("\\w", "", ASCII);
+      const re = ecmaRe("\\w", "", ASCII);
       expect(re.flags).not.toContain("v");
     });
   });

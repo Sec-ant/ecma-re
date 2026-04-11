@@ -1,4 +1,4 @@
-export class EsreError extends Error {
+export class EcmaReError extends Error {
   constructor(
     message: string,
     public position?: number,
@@ -6,6 +6,6 @@ export class EsreError extends Error {
     super(
       position !== undefined ? `${message} at position ${position}` : message,
     );
-    this.name = "EsreError";
+    this.name = "EcmaReError";
   }
 }

@@ -1,4 +1,4 @@
-import { EsreError } from "./errors";
+import { EcmaReError } from "./errors";
 import type {
   AlternationNode,
   AssertionNode,
@@ -199,7 +199,7 @@ class Parser {
 
   private expect(ch: string): void {
     if (this.input.charAt(this.pos) !== ch) {
-      throw new EsreError(
+      throw new EcmaReError(
         `Expected '${ch}', got '${this.input.charAt(this.pos) || "EOF"}'`,
         this.pos,
       );
@@ -216,7 +216,7 @@ class Parser {
     this.tryParseGlobalFlags();
     const node = this.parseAlternation();
     if (!this.atEnd()) {
-      throw new EsreError(`Unexpected character '${this.ch}'`, this.pos);
+      throw new EcmaReError(`Unexpected character '${this.ch}'`, this.pos);
     }
     return node;
   }
@@ -414,7 +414,7 @@ class Parser {
             value: ch.charCodeAt(0),
           } satisfies LiteralNode;
         }
-        throw new EsreError("Nothing to repeat", this.pos);
+        throw new EcmaReError("Nothing to repeat", this.pos);
 
       case "}":
         // Literal } outside of quantifier context
@@ -490,7 +490,7 @@ class Parser {
     }
 
     if (this.atEnd()) {
-      throw new EsreError("Unterminated character class", this.pos);
+      throw new EcmaReError("Unterminated character class", this.pos);
     }
     this.advance(); // skip ]
 
@@ -513,7 +513,7 @@ class Parser {
 
   private parseCharClassEscape(): CharClassMember {
     this.advance(); // skip \
-    if (this.atEnd()) throw new EsreError("Trailing backslash", this.pos);
+    if (this.atEnd()) throw new EcmaReError("Trailing backslash", this.pos);
 
     const ch = this.advance();
     switch (ch) {
@@ -606,7 +606,7 @@ class Parser {
   private parseEscape(): Node {
     const escStart = this.pos;
     this.advance(); // skip \
-    if (this.atEnd()) throw new EsreError("Trailing backslash", this.pos);
+    if (this.atEnd()) throw new EcmaReError("Trailing backslash", this.pos);
 
     const ch = this.advance();
     switch (ch) {
@@ -704,7 +704,7 @@ class Parser {
         return { type: "literal", value: hex } satisfies LiteralNode;
       }
       case "N":
-        throw new EsreError("\\N{name} escapes are not supported", escStart);
+        throw new EcmaReError("\\N{name} escapes are not supported", escStart);
 
       case "0": {
         const val = this.parseOctalAfterZero();
@@ -729,7 +729,7 @@ class Parser {
     let hex = "";
     for (let i = 0; i < digits; i++) {
       if (this.atEnd() || !isHexDigit(this.ch)) {
-        throw new EsreError(
+        throw new EcmaReError(
           `Invalid hex escape (expected ${digits} hex digits)`,
           this.pos,
         );
@@ -858,12 +858,12 @@ class Parser {
     const groupStart = this.pos;
     this.advance(); // skip (
 
-    if (this.atEnd()) throw new EsreError("Unterminated group", groupStart);
+    if (this.atEnd()) throw new EcmaReError("Unterminated group", groupStart);
 
     // Check for (?...) special groups
     if (this.currentChar() === "?") {
       this.advance(); // skip ?
-      if (this.atEnd()) throw new EsreError("Unterminated group", groupStart);
+      if (this.atEnd()) throw new EcmaReError("Unterminated group", groupStart);
 
       const specifier: string = this.currentChar();
 
@@ -883,7 +883,7 @@ class Parser {
         case "P": {
           this.advance(); // skip P
           if (this.atEnd())
-            throw new EsreError("Unterminated group", groupStart);
+            throw new EcmaReError("Unterminated group", groupStart);
           if (this.currentChar() === "<") {
             // Named group (?P<name>...)
             this.advance(); // skip <
@@ -892,9 +892,9 @@ class Parser {
               name += this.advance();
             }
             if (this.atEnd())
-              throw new EsreError("Unterminated group name", groupStart);
+              throw new EcmaReError("Unterminated group name", groupStart);
             this.advance(); // skip >
-            if (!name) throw new EsreError("Empty group name", groupStart);
+            if (!name) throw new EcmaReError("Empty group name", groupStart);
 
             this.groupCount++;
             const groupNum = this.groupCount;
@@ -919,13 +919,13 @@ class Parser {
             }
             this.expect(")");
             if (!name)
-              throw new EsreError(
+              throw new EcmaReError(
                 "Empty group name in backreference",
                 groupStart,
               );
             return { type: "backreference", name } satisfies BackreferenceNode;
           }
-          throw new EsreError(
+          throw new EcmaReError(
             `Invalid group syntax (?P${this.currentChar()})`,
             groupStart,
           );
@@ -954,7 +954,7 @@ class Parser {
         case "<": {
           this.advance(); // skip <
           if (this.atEnd())
-            throw new EsreError("Unterminated group", groupStart);
+            throw new EcmaReError("Unterminated group", groupStart);
           if (this.currentChar() === "=") {
             // Positive lookbehind (?<=...)
             this.advance();
@@ -977,7 +977,7 @@ class Parser {
               body,
             } satisfies GroupNode;
           }
-          throw new EsreError("Invalid lookbehind syntax", groupStart);
+          throw new EcmaReError("Invalid lookbehind syntax", groupStart);
         }
 
         case "#": {
@@ -987,7 +987,7 @@ class Parser {
             this.advance();
           }
           if (this.atEnd())
-            throw new EsreError("Unterminated comment group", groupStart);
+            throw new EcmaReError("Unterminated comment group", groupStart);
           this.advance(); // skip )
           return { type: "comment" } satisfies CommentNode;
         }
@@ -1009,7 +1009,7 @@ class Parser {
             ref += this.advance();
           }
           if (this.atEnd())
-            throw new EsreError("Unterminated conditional group", groupStart);
+            throw new EcmaReError("Unterminated conditional group", groupStart);
           this.advance(); // skip ) closing the condition
 
           // Parse yes pattern
@@ -1073,9 +1073,9 @@ class Parser {
               this.globalFlags += flags;
               return { type: "comment" } satisfies CommentNode; // treat as no-op
             }
-            throw new EsreError("Invalid flag group syntax", groupStart);
+            throw new EcmaReError("Invalid flag group syntax", groupStart);
           }
-          throw new EsreError(
+          throw new EcmaReError(
             `Invalid group syntax (?${specifier})`,
             groupStart,
           );

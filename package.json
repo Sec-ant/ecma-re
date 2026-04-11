@@ -1,22 +1,22 @@
 {
-  "name": "esre",
+  "name": "ecma-re",
   "version": "0.0.0",
   "description": "Transpile Python regex patterns into ECMAScript RegExp objects",
   "private": false,
   "type": "module",
   "packageManager": "pnpm@10.33.0+sha512.10568bb4a6afb58c9eb3630da90cc9516417abebd3fabbe6739f0ae795728da1491e9db5a544c76ad8eb7570f5c4bb3d6c637b2cb41bfdcdb47fa823c8649319",
-  "main": "./dist/esre.cjs",
-  "module": "./dist/esre.js",
+  "main": "./dist/ecma-re.cjs",
+  "module": "./dist/ecma-re.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "import": {
         "types": "./dist/index.d.ts",
-        "default": "./dist/esre.js"
+        "default": "./dist/ecma-re.js"
       },
       "require": {
         "types": "./dist/index.d.ts",
-        "default": "./dist/esre.cjs"
+        "default": "./dist/ecma-re.cjs"
       }
     }
   },
@@ -25,11 +25,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Sec-ant/esre.git"
+    "url": "git+https://github.com/Sec-ant/ecma-re.git"
   },
-  "homepage": "https://github.com/Sec-ant/esre",
+  "homepage": "https://github.com/Sec-ant/ecma-re",
   "bugs": {
-    "url": "https://github.com/Sec-ant/esre/issues"
+    "url": "https://github.com/Sec-ant/ecma-re/issues"
   },
   "keywords": [
     "python",

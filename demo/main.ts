@@ -1,4 +1,4 @@
-import { esre } from "../src/index";
+import { ecmaRe } from "../src/index";
 
 // --- DOM elements ---
 
@@ -103,7 +103,7 @@ function update() {
   }
 
   try {
-    currentRegex = esre(pattern, flags, {
+    currentRegex = ecmaRe(pattern, flags, {
       ascii: optAscii.checked,
       loose: optLoose.checked,
     });

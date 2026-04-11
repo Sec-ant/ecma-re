@@ -6,8 +6,8 @@ export default defineConfig({
     minify: false,
     lib: {
       entry: "src/index.ts",
-      name: "esre",
-      fileName: "esre",
+      name: "ecmaRe",
+      fileName: "ecma-re",
       formats: ["es", "cjs"],
     },
     rollupOptions: {

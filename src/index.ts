@@ -1,11 +1,11 @@
-export { EsreError } from "./errors";
-export type { EsreOptions, Node, TranspileResult } from "./types";
+export { EcmaReError } from "./errors";
+export type { EcmaReOptions, Node, TranspileResult } from "./types";
 
 import { emit } from "./emitter";
-import { EsreError } from "./errors";
+import { EcmaReError } from "./errors";
 import { hasLeadingGlobalVerboseFlag, parse } from "./parser";
 import { transform } from "./transformer";
-import type { EsreOptions } from "./types";
+import type { EcmaReOptions } from "./types";
 
 /**
  * Transpile a Python regex pattern into an ECMAScript RegExp object.
@@ -15,10 +15,10 @@ import type { EsreOptions } from "./types";
  * @param options - Transpilation options
  * @returns An ECMAScript RegExp object
  */
-export function esre(
+export function ecmaRe(
   pattern: string,
   flags?: string,
-  options?: EsreOptions,
+  options?: EcmaReOptions,
 ): RegExp {
   const externalFlags = flags ?? "";
 
@@ -56,6 +56,6 @@ export function esre(
     return new RegExp(source, esFlags);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    throw new EsreError(`Failed to create RegExp: ${msg}`);
+    throw new EcmaReError(`Failed to create RegExp: ${msg}`);
   }
 }

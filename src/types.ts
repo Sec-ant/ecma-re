@@ -150,7 +150,7 @@ export type Node =
 
 // ── Options & Result ────────────────────────────────────────────────
 
-export interface EsreOptions {
+export interface EcmaReOptions {
   /** Use ASCII semantics for \w, \d, \s, \b instead of Python Unicode semantics. */
   ascii?: boolean;
   /** Degrade gracefully on untranspilable features instead of throwing. */
