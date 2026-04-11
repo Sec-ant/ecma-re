@@ -26,6 +26,8 @@ interface Example {
   pattern: string;
   flags: string;
   test: string;
+  ascii?: boolean;
+  loose?: boolean;
 }
 
 const EXAMPLES: Example[] = [
@@ -66,6 +68,45 @@ const EXAMPLES: Example[] = [
     flags: "",
     test: "Python 3 PYTHON 4 python 5",
   },
+  {
+    label: "IPv4 validator",
+    pattern:
+      "^(?:(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)$",
+    flags: "m",
+    test: "192.168.1.1\n255.255.255.0\n999.0.0.1\n10.0.0.256",
+  },
+  {
+    label: "Nested backrefs",
+    pattern: "((\\w+) \\2) \\1",
+    flags: "",
+    test: "abc abc abc abc  xyz xyz xyz xyz",
+  },
+  {
+    label: "Lookaround sandwich",
+    pattern: "(?<=\\()(?P<inner>[^)]+)(?=\\))",
+    flags: "",
+    test: "call(arg1) fn(x, y) empty()",
+  },
+  {
+    label: "Verbose + (?#…)",
+    pattern:
+      "(?P<proto>https?)  (?# protocol )\n://                 (?# separator )\n(?P<host>[^/]+)     (?# hostname )\n(?P<path>/\\S*)?     (?# optional path )",
+    flags: "x",
+    test: "Visit https://example.com/path and http://test.org",
+  },
+  {
+    label: "Octal vs backref",
+    pattern: "(.)\\1\\077",
+    flags: "",
+    test: "aa? bb? cc!",
+  },
+  {
+    label: "Atomic (loose)",
+    pattern: "(?>\\d+)\\.",
+    flags: "",
+    test: "123. 456. abc.",
+    loose: true,
+  },
 ];
 
 function renderExamples() {
@@ -81,6 +122,8 @@ function loadExample(ex: Example) {
   patternEl.value = ex.pattern;
   flagsEl.value = ex.flags;
   testStringEl.value = ex.test;
+  optAscii.checked = ex.ascii ?? false;
+  optLoose.checked = ex.loose ?? false;
   update();
 }
 

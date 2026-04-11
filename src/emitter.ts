@@ -30,6 +30,7 @@ function needsCharClassEscape(cp: number, useVFlag: boolean): boolean {
       return true;
     case 0x28:
     case 0x29:
+    case 0x5b:
     case 0x7b:
     case 0x7d:
     case 0x7c:
@@ -173,8 +174,23 @@ function emitCharClassMember(elem: CharClassMember, useVFlag: boolean): string {
 
 function emitCharClassShorthandMember(
   elem: CharClassShorthand,
-  _useVFlag: boolean,
+  useVFlag: boolean,
 ): string {
+  if (useVFlag) {
+    switch (elem.kind) {
+      case "w":
+        // Expand \w to Unicode-aware equivalents inside char class in v-mode.
+        // ES \w only matches ASCII; we need \p{L}\p{N}_ to match Unicode.
+        return "\\p{L}\\p{N}_";
+      case "W":
+        // \W as a nested negated class in v-mode: [^\p{L}\p{N}_]
+        return "[^\\p{L}\\p{N}_]";
+      default:
+        // \d, \D, \s, \S are already converted to unicode properties
+        // by the transformer, so they shouldn't reach here in v-mode.
+        return `\\${elem.kind}`;
+    }
+  }
   return `\\${elem.kind}`;
 }
 

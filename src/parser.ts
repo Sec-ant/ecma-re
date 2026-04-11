@@ -149,7 +149,22 @@ export function preprocessVerbose(pattern: string): string {
     }
 
     // Unescaped # starts a comment until end of line
+    // BUT: if preceded by (?, this is a (?#...) inline comment — consume until )
     if (ch === "#") {
+      const pLen = parts.length;
+      if (pLen >= 2 && parts[pLen - 2] === "(" && parts[pLen - 1] === "?") {
+        // (?#...) inline comment: remove the ( and ? we already pushed,
+        // then consume everything until the closing )
+        parts.pop(); // remove ?
+        parts.pop(); // remove (
+        i++; // skip the #
+        while (i < pattern.length && pattern.charAt(i) !== ")") {
+          i++;
+        }
+        // skip the closing )
+        if (i < pattern.length) i++;
+        continue;
+      }
       while (i < pattern.length && pattern.charAt(i) !== "\n") {
         i++;
       }
