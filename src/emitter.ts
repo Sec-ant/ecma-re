@@ -2,10 +2,8 @@ import type {
   AlternationNode,
   AssertionNode,
   BackreferenceNode,
-  CharClassLiteral,
   CharClassMember,
   CharClassNode,
-  CharClassRange,
   CharClassShorthand,
   CharClassUnicodeProperty,
   GroupNode,
@@ -17,8 +15,87 @@ import type {
   UnicodePropertyNode,
 } from "./types";
 
+const EMPTY = "";
+
 export function emit(node: Node, useVFlag: boolean): string {
   return emitNode(node, false, useVFlag);
+}
+
+function needsCharClassEscape(cp: number, useVFlag: boolean): boolean {
+  switch (cp) {
+    case 0x5c:
+    case 0x5d:
+    case 0x5e:
+    case 0x2d:
+      return true;
+    case 0x28:
+    case 0x29:
+    case 0x7b:
+    case 0x7d:
+    case 0x7c:
+    case 0x2f:
+      return useVFlag;
+    default:
+      return false;
+  }
+}
+
+function needsRegexEscape(cp: number): boolean {
+  switch (cp) {
+    case 0x5c:
+    case 0x5e:
+    case 0x24:
+    case 0x2e:
+    case 0x2a:
+    case 0x2b:
+    case 0x3f:
+    case 0x28:
+    case 0x29:
+    case 0x5b:
+    case 0x5d:
+    case 0x7b:
+    case 0x7d:
+    case 0x7c:
+    case 0x2f:
+      return true;
+    default:
+      return false;
+  }
+}
+
+function emitCodePoint(
+  cp: number,
+  inCharClass: boolean,
+  useVFlag: boolean,
+): string {
+  if (cp < 0x20 || cp === 0x7f) {
+    switch (cp) {
+      case 0x09:
+        return "\\t";
+      case 0x0a:
+        return "\\n";
+      case 0x0d:
+        return "\\r";
+      case 0x0b:
+        return "\\v";
+      case 0x0c:
+        return "\\f";
+      case 0x07:
+        return "\\x07";
+      case 0x08:
+        return "\\b";
+      default:
+        if (cp <= 0xff) return `\\x${cp.toString(16).padStart(2, "0")}`;
+        return `\\u${cp.toString(16).padStart(4, "0")}`;
+    }
+  }
+
+  const ch = String.fromCodePoint(cp);
+  if (inCharClass) {
+    return needsCharClassEscape(cp, useVFlag) ? `\\${ch}` : ch;
+  }
+
+  return needsRegexEscape(cp) ? `\\${ch}` : ch;
 }
 
 function emitNode(node: Node, inCharClass: boolean, useVFlag: boolean): string {
@@ -46,12 +123,12 @@ function emitNode(node: Node, inCharClass: boolean, useVFlag: boolean): string {
     case "sequence":
       return emitSequence(node, useVFlag);
     case "comment":
-      return "";
+      return EMPTY;
     case "conditional":
       // Should have been transformed or errored before emission
-      return "";
+      return EMPTY;
     default:
-      return "";
+      return EMPTY;
   }
 }
 
@@ -60,51 +137,7 @@ function emitLiteral(
   inCharClass: boolean,
   useVFlag: boolean,
 ): string {
-  const cp = node.value;
-
-  // Control characters - emit as hex escapes
-  if (cp < 0x20 || cp === 0x7f) {
-    switch (cp) {
-      case 0x09:
-        return "\\t";
-      case 0x0a:
-        return "\\n";
-      case 0x0d:
-        return "\\r";
-      case 0x0b:
-        return "\\v";
-      case 0x0c:
-        return "\\f";
-      case 0x07:
-        return "\\x07";
-      case 0x08:
-        return "\\b"; // backspace
-      default:
-        if (cp <= 0xff) return `\\x${cp.toString(16).padStart(2, "0")}`;
-        return `\\u${cp.toString(16).padStart(4, "0")}`;
-    }
-  }
-
-  const ch = String.fromCodePoint(cp);
-
-  if (inCharClass) {
-    // Inside character class, need to escape these
-    if (useVFlag) {
-      // In v-flag mode, more chars need escaping inside char class
-      if ("\\]^-".includes(ch)) return `\\${ch}`;
-      // In v-flag mode, these also need escaping in char classes
-      if ("(){}|/".includes(ch)) return `\\${ch}`;
-      return ch;
-    }
-    if ("\\]^-".includes(ch)) return `\\${ch}`;
-    return ch;
-  }
-
-  // Outside character class, escape regex metacharacters
-  const metachars = /[\\^$.*+?()[\]{}|/]/;
-  if (metachars.test(ch)) return `\\${ch}`;
-
-  return ch;
+  return emitCodePoint(node.value, inCharClass, useVFlag);
 }
 
 function emitCharClass(node: CharClassNode, useVFlag: boolean): string {
@@ -120,9 +153,13 @@ function emitCharClass(node: CharClassNode, useVFlag: boolean): string {
 function emitCharClassMember(elem: CharClassMember, useVFlag: boolean): string {
   switch (elem.type) {
     case "literal":
-      return emitCharClassLiteral(elem, useVFlag);
+      return emitCodePoint(elem.value, true, useVFlag);
     case "range":
-      return emitCharClassRange(elem, useVFlag);
+      return `${emitCodePoint(elem.from, true, useVFlag)}-${emitCodePoint(
+        elem.to,
+        true,
+        useVFlag,
+      )}`;
     case "shorthand":
       return emitCharClassShorthandMember(elem, useVFlag);
     case "backspace":
@@ -130,25 +167,8 @@ function emitCharClassMember(elem: CharClassMember, useVFlag: boolean): string {
     case "unicodeProperty":
       return emitCharClassUnicodeProperty(elem);
     default:
-      return "";
+      return EMPTY;
   }
-}
-
-function emitCharClassLiteral(
-  elem: CharClassLiteral,
-  useVFlag: boolean,
-): string {
-  return emitLiteral({ type: "literal", value: elem.value }, true, useVFlag);
-}
-
-function emitCharClassRange(elem: CharClassRange, useVFlag: boolean): string {
-  const from = emitLiteral(
-    { type: "literal", value: elem.from },
-    true,
-    useVFlag,
-  );
-  const to = emitLiteral({ type: "literal", value: elem.to }, true, useVFlag);
-  return `${from}-${to}`;
 }
 
 function emitCharClassShorthandMember(
@@ -237,7 +257,12 @@ function needsWrapForQuantifier(node: Node): boolean {
 }
 
 function emitAlternation(node: AlternationNode, useVFlag: boolean): string {
-  return node.alternatives.map((a) => emitNode(a, false, useVFlag)).join("|");
+  let result = EMPTY;
+  for (let i = 0; i < node.alternatives.length; i++) {
+    if (i > 0) result += "|";
+    result += emitNode(node.alternatives[i]!, false, useVFlag);
+  }
+  return result;
 }
 
 function emitAssertion(node: AssertionNode): string {
@@ -274,5 +299,9 @@ function emitUnicodeProperty(node: UnicodePropertyNode): string {
 }
 
 function emitSequence(node: SequenceNode, useVFlag: boolean): string {
-  return node.elements.map((e) => emitNode(e, false, useVFlag)).join("");
+  let result = EMPTY;
+  for (const element of node.elements) {
+    result += emitNode(element, false, useVFlag);
+  }
+  return result;
 }

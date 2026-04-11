@@ -3,7 +3,7 @@ export type { EsreOptions, Node, TranspileResult } from "./types";
 
 import { emit } from "./emitter";
 import { EsreError } from "./errors";
-import { parse } from "./parser";
+import { hasLeadingGlobalVerboseFlag, parse } from "./parser";
 import { transform } from "./transformer";
 import type { EsreOptions } from "./types";
 
@@ -23,7 +23,8 @@ export function esre(
   const externalFlags = flags ?? "";
 
   // Determine if verbose mode is active
-  const verboseMode = externalFlags.includes("x");
+  const verboseMode =
+    externalFlags.includes("x") || hasLeadingGlobalVerboseFlag(pattern);
 
   // Parse the pattern into an AST
   const parseResult = parse(pattern, verboseMode);

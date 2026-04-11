@@ -296,9 +296,13 @@ function transformAlternation(
   node: AlternationNode,
   ctx: TransformContext,
 ): Node {
+  const alternatives: Node[] = [];
+  for (const alternative of node.alternatives) {
+    alternatives.push(transformNode(alternative, ctx));
+  }
   return {
     type: "alternation",
-    alternatives: node.alternatives.map((a) => transformNode(a, ctx)),
+    alternatives,
   } satisfies AlternationNode;
 }
 
@@ -558,12 +562,14 @@ function transformShorthand(node: ShorthandNode, ctx: TransformContext): Node {
 }
 
 function transformSequence(node: SequenceNode, ctx: TransformContext): Node {
-  const elements = node.elements
-    .map((e) => transformNode(e, ctx))
-    .filter(
-      (e) =>
-        !(e.type === "sequence" && (e as SequenceNode).elements.length === 0),
-    );
+  const elements: Node[] = [];
+  for (const element of node.elements) {
+    const transformed = transformNode(element, ctx);
+    if (transformed.type === "sequence" && transformed.elements.length === 0) {
+      continue;
+    }
+    elements.push(transformed);
+  }
   if (elements.length === 0)
     return { type: "sequence", elements: [] } satisfies SequenceNode;
   if (elements.length === 1) return elements[0]!;

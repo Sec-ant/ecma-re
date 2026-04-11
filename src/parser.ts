@@ -27,6 +27,71 @@ export interface ParseResult {
   globalFlags: string;
 }
 
+function isWhitespace(ch: string): boolean {
+  switch (ch) {
+    case " ":
+    case "\t":
+    case "\n":
+    case "\r":
+    case "\f":
+    case "\v":
+      return true;
+    default:
+      return false;
+  }
+}
+
+function isDigit(ch: string): boolean {
+  return ch >= "0" && ch <= "9";
+}
+
+function isHexDigit(ch: string): boolean {
+  return (
+    (ch >= "0" && ch <= "9") ||
+    (ch >= "a" && ch <= "f") ||
+    (ch >= "A" && ch <= "F")
+  );
+}
+
+function isGlobalFlag(ch: string): boolean {
+  switch (ch) {
+    case "a":
+    case "i":
+    case "L":
+    case "m":
+    case "s":
+    case "u":
+    case "x":
+      return true;
+    default:
+      return false;
+  }
+}
+
+function isInlineFlagChar(ch: string): boolean {
+  return ch === "-" || isGlobalFlag(ch);
+}
+
+export function hasLeadingGlobalVerboseFlag(pattern: string): boolean {
+  if (pattern.charAt(0) !== "(" || pattern.charAt(1) !== "?") {
+    return false;
+  }
+
+  let i = 2;
+  let hasFlags = false;
+  let hasVerboseFlag = false;
+
+  while (i < pattern.length && isGlobalFlag(pattern.charAt(i))) {
+    hasFlags = true;
+    if (pattern.charAt(i) === "x") {
+      hasVerboseFlag = true;
+    }
+    i++;
+  }
+
+  return hasFlags && pattern.charAt(i) === ")" && hasVerboseFlag;
+}
+
 export function parse(pattern: string, verboseMode = false): ParseResult {
   // If verbose mode, preprocess the pattern first
   const input = verboseMode ? preprocessVerbose(pattern) : pattern;
@@ -45,14 +110,14 @@ export function parse(pattern: string, verboseMode = false): ParseResult {
  * outside character classes.
  */
 export function preprocessVerbose(pattern: string): string {
-  let result = "";
+  const parts: string[] = [];
   let i = 0;
   while (i < pattern.length) {
     const ch = pattern.charAt(i);
 
     // Escaped character: keep as-is
     if (ch === "\\" && i + 1 < pattern.length) {
-      result += ch + pattern.charAt(i + 1);
+      parts.push(pattern.slice(i, i + 2));
       i += 2;
       continue;
     }
@@ -60,29 +125,25 @@ export function preprocessVerbose(pattern: string): string {
     // Character class: copy verbatim (including nested escapes)
     if (ch === "[") {
       let j = i + 1;
-      result += ch;
       // Handle ] at start of character class
       if (j < pattern.length && pattern.charAt(j) === "^") {
-        result += pattern.charAt(j);
         j++;
       }
       if (j < pattern.length && pattern.charAt(j) === "]") {
-        result += pattern.charAt(j);
         j++;
       }
-      while (j < pattern.length && pattern.charAt(j) !== "]") {
+      while (j < pattern.length) {
         if (pattern.charAt(j) === "\\" && j + 1 < pattern.length) {
-          result += pattern.charAt(j) + pattern.charAt(j + 1);
           j += 2;
-        } else {
-          result += pattern.charAt(j);
-          j++;
+          continue;
         }
-      }
-      if (j < pattern.length) {
-        result += pattern.charAt(j); // closing ]
+        if (pattern.charAt(j) === "]") {
+          j++;
+          break;
+        }
         j++;
       }
+      parts.push(pattern.slice(i, j));
       i = j;
       continue;
     }
@@ -98,15 +159,16 @@ export function preprocessVerbose(pattern: string): string {
     }
 
     // Unescaped whitespace: skip
-    if (/\s/.test(ch)) {
+    if (isWhitespace(ch)) {
       i++;
       continue;
     }
 
-    result += ch;
+    parts.push(ch);
     i++;
   }
-  return result;
+
+  return parts.join("");
 }
 
 class Parser {
@@ -165,11 +227,12 @@ class Parser {
     if (this.ch === "(" && this.peek(1) === "?") {
       let j = 2;
       let flags = "";
-      while (
-        this.pos + j < this.input.length &&
-        /[aiLmsux]/.test(this.input.charAt(this.pos + j))
-      ) {
-        flags += this.input.charAt(this.pos + j);
+      while (this.pos + j < this.input.length) {
+        const flag = this.input.charAt(this.pos + j);
+        if (!isGlobalFlag(flag)) {
+          break;
+        }
+        flags += flag;
         j++;
       }
       if (flags.length > 0 && this.input.charAt(this.pos + j) === ")") {
@@ -269,7 +332,7 @@ class Parser {
 
     // Parse min
     let minStr = "";
-    while (!this.atEnd() && /\d/.test(this.ch)) {
+    while (!this.atEnd() && isDigit(this.ch)) {
       minStr += this.advance();
     }
     if (minStr.length === 0) {
@@ -284,7 +347,7 @@ class Parser {
     if (this.ch === ",") {
       this.advance();
       let maxStr = "";
-      while (!this.atEnd() && /\d/.test(this.ch)) {
+      while (!this.atEnd() && isDigit(this.ch)) {
         maxStr += this.advance();
       }
       max =
@@ -665,7 +728,7 @@ class Parser {
   private parseHexEscape(digits: number): number {
     let hex = "";
     for (let i = 0; i < digits; i++) {
-      if (this.atEnd() || !/[0-9a-fA-F]/.test(this.ch)) {
+      if (this.atEnd() || !isHexDigit(this.ch)) {
         throw new EsreError(
           `Invalid hex escape (expected ${digits} hex digits)`,
           this.pos,
@@ -973,11 +1036,11 @@ class Parser {
 
         default: {
           // Check for flag group (?flags:...) or (?flags-negflags:...) or (?flags)
-          if (/[aiLmsux-]/.test(specifier)) {
+          if (isInlineFlagChar(specifier)) {
             let flags = "";
             let negFlags = "";
             let inNeg = false;
-            while (!this.atEnd() && /[aiLmsux-]/.test(this.currentChar())) {
+            while (!this.atEnd() && isInlineFlagChar(this.currentChar())) {
               if (this.currentChar() === "-") {
                 inNeg = true;
                 this.advance();
