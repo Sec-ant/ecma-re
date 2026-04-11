@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>esre — Python regex → ES RegExp</title>
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+    }
+
+    :root {
+      color-scheme: light dark;
+      --bg: #fafaf9;
+      --fg: #1c1917;
+      --muted: #78716c;
+      --border: #d6d3d1;
+      --surface: #fff;
+      --accent: #b45309;
+      --accent-bg: #fffbeb;
+      --error: #dc2626;
+      --error-bg: #fef2f2;
+      --match1: #fef08a;
+      --match1-border: #eab308;
+      --match2: #bbf7d0;
+      --match2-border: #22c55e;
+      --mono: "SF Mono", "Cascadia Code", "Fira Code", ui-monospace,
+        monospace;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1c1917;
+        --fg: #e7e5e4;
+        --muted: #a8a29e;
+        --border: #44403c;
+        --surface: #292524;
+        --accent: #f59e0b;
+        --accent-bg: #292211;
+        --error: #f87171;
+        --error-bg: #2c1518;
+        --match1: #854d0e;
+        --match1-border: #ca8a04;
+        --match2: #166534;
+        --match2-border: #16a34a;
+      }
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
+        sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      line-height: 1.5;
+      min-height: 100dvh;
+      padding: 3rem 1.5rem;
+    }
+
+    .container {
+      max-width: 660px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-family: var(--mono);
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    h1 span {
+      color: var(--muted);
+      font-weight: 400;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.875rem;
+      margin-top: 0.25rem;
+    }
+
+    .section {
+      margin-top: 1.75rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 0.375rem;
+    }
+
+    /* --- Examples --- */
+    .examples {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.375rem;
+      margin-top: 0.5rem;
+    }
+
+    .examples button {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      padding: 0.25rem 0.625rem;
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      background: var(--surface);
+      color: var(--fg);
+      cursor: pointer;
+      transition:
+        border-color 0.15s,
+        background 0.15s;
+      white-space: nowrap;
+    }
+
+    .examples button:hover {
+      border-color: var(--accent);
+      background: var(--accent-bg);
+    }
+
+    /* --- Inputs --- */
+    .input-row {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .input-row .pattern-field {
+      flex: 1;
+    }
+
+    .input-row .flags-field {
+      width: 5.5rem;
+    }
+
+    input,
+    textarea {
+      font-family: var(--mono);
+      font-size: 0.9375rem;
+      line-height: 1.6;
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--fg);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    input:focus,
+    textarea:focus {
+      border-color: var(--accent);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 2.75rem;
+      field-sizing: content;
+    }
+
+    /* --- Options --- */
+    .options {
+      display: flex;
+      gap: 1.25rem;
+      margin-top: 0.375rem;
+    }
+
+    .options label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.8125rem;
+      font-weight: 400;
+      text-transform: none;
+      letter-spacing: normal;
+      color: var(--fg);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .options input[type="checkbox"] {
+      width: auto;
+      accent-color: var(--accent);
+    }
+
+    /* --- Output --- */
+    .output-box {
+      font-family: var(--mono);
+      font-size: 0.9375rem;
+      line-height: 1.6;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--accent-bg);
+      color: var(--fg);
+      word-break: break-all;
+      min-height: 2.625rem;
+      cursor: text;
+      user-select: all;
+    }
+
+    .output-box:empty::before {
+      content: "\2014";
+      color: var(--muted);
+    }
+
+    .error-box {
+      font-family: var(--mono);
+      font-size: 0.8125rem;
+      line-height: 1.5;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      background: var(--error-bg);
+      color: var(--error);
+      margin-top: 0.5rem;
+      display: none;
+    }
+
+    .error-box.visible {
+      display: block;
+    }
+
+    /* --- Match highlighting --- */
+    .sep {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 1.75rem 0;
+    }
+
+    .match-count {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-bottom: 0.375rem;
+      min-height: 1.125rem;
+    }
+
+    .highlighted-text {
+      font-family: var(--mono);
+      font-size: 0.9375rem;
+      line-height: 1.8;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      white-space: pre-wrap;
+      word-break: break-word;
+      min-height: 2.625rem;
+    }
+
+    .highlighted-text:empty::before {
+      content: "Enter a test string above";
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    .highlighted-text mark {
+      background: var(--match1);
+      border-bottom: 2px solid var(--match1-border);
+      border-radius: 2px;
+      padding: 0 1px;
+    }
+
+    .highlighted-text mark:nth-of-type(even) {
+      background: var(--match2);
+      border-bottom-color: var(--match2-border);
+    }
+
+    .highlighted-text mark.empty-match {
+      background: var(--match1);
+      border-bottom: 2px solid var(--match1-border);
+      padding: 0 2px;
+      margin: 0 1px;
+    }
+
+    .highlighted-text mark.empty-match:nth-of-type(even) {
+      background: var(--match2);
+      border-bottom-color: var(--match2-border);
+    }
+
+    /* --- Group details --- */
+    .groups {
+      margin-top: 0.75rem;
+    }
+
+    .groups summary {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .groups-list {
+      margin-top: 0.375rem;
+      font-family: var(--mono);
+      font-size: 0.8125rem;
+      line-height: 1.7;
+      color: var(--fg);
+    }
+
+    .groups-list .match-idx {
+      font-weight: 600;
+      color: var(--muted);
+      margin-top: 0.25rem;
+    }
+
+    .groups-list .match-idx:first-child {
+      margin-top: 0;
+    }
+
+    .groups-list .group-entry {
+      padding-left: 1rem;
+      color: var(--fg);
+    }
+
+    .group-name {
+      color: var(--accent);
+    }
+
+    .group-val {
+      color: var(--fg);
+    }
+
+    /* --- Footer --- */
+    .footer {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 2.5rem;
+    }
+
+    .footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>esre <span>playground</span></h1>
+    <p class="subtitle">
+      Transpile Python <code>re</code> patterns into ECMAScript <code>RegExp</code>
+      objects.
+    </p>
+
+    <div class="section">
+      <label>Examples</label>
+      <div class="examples" id="examples"></div>
+    </div>
+
+    <div class="section">
+      <div class="input-row">
+        <div class="pattern-field">
+          <label for="pattern">Pattern</label>
+          <textarea id="pattern" spellcheck="false" autocomplete="off"></textarea>
+        </div>
+        <div class="flags-field">
+          <label for="flags">Flags</label>
+          <input id="flags" type="text" spellcheck="false" autocomplete="off" />
+        </div>
+      </div>
+      <div class="options">
+        <label>
+          <input type="checkbox" id="opt-ascii" />
+          ascii
+        </label>
+        <label>
+          <input type="checkbox" id="opt-loose" />
+          loose
+        </label>
+      </div>
+    </div>
+
+    <div class="section">
+      <label>Output</label>
+      <div class="output-box" id="output"></div>
+      <div class="error-box" id="error"></div>
+    </div>
+
+    <hr class="sep" />
+
+    <div class="section">
+      <label for="test-string">Test string</label>
+      <textarea id="test-string" spellcheck="false" autocomplete="off"></textarea>
+    </div>
+
+    <div class="section">
+      <div class="match-count" id="match-count"></div>
+      <div class="highlighted-text" id="highlighted"></div>
+      <details class="groups" id="groups-details" style="display: none">
+        <summary>Group details</summary>
+        <div class="groups-list" id="groups-list"></div>
+      </details>
+    </div>
+
+    <p class="footer">
+      <a href="https://github.com/Sec-ant/esre">esre</a> &mdash; zero
+      dependencies, ES2025, Unicode-aware.
+    </p>
+  </div>
+  <script type="module" src="./main.ts"></script>
+</body>
+
+</html>

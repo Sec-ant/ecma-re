@@ -1,0 +1,86 @@
+{
+  "name": "esre",
+  "version": "0.0.0",
+  "description": "Transpile Python regex patterns into ECMAScript RegExp objects",
+  "private": false,
+  "type": "module",
+  "packageManager": "pnpm@10.33.0+sha512.10568bb4a6afb58c9eb3630da90cc9516417abebd3fabbe6739f0ae795728da1491e9db5a544c76ad8eb7570f5c4bb3d6c637b2cb41bfdcdb47fa823c8649319",
+  "main": "./dist/esre.cjs",
+  "module": "./dist/esre.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/esre.js"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/esre.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sec-ant/esre.git"
+  },
+  "homepage": "https://github.com/Sec-ant/esre",
+  "bugs": {
+    "url": "https://github.com/Sec-ant/esre/issues"
+  },
+  "keywords": [
+    "python",
+    "regex",
+    "regexp",
+    "regular-expression",
+    "transpiler",
+    "parser",
+    "unicode",
+    "esmodule"
+  ],
+  "author": {
+    "name": "Ze-Zheng Wu"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "dev": "vite dev -c demo/vite.config.ts --open",
+    "demo:build": "vite build -c demo/vite.config.ts",
+    "update-hooks": "simple-git-hooks",
+    "lint": "biome lint .",
+    "type-check": "tsc --noEmit --emitDeclarationOnly false",
+    "check": "biome check --write .",
+    "format": "biome format --write .",
+    "clear:dist": "rimraf dist",
+    "prebuild": "pnpm -s check && pnpm -s type-check && pnpm -s clear:dist",
+    "build": "vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "pnpm -s build"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.11",
+    "@changesets/cli": "^2.30.0",
+    "@commitlint/cli": "^20.5.0",
+    "@commitlint/config-conventional": "^20.5.0",
+    "@types/node": "^24.12.2",
+    "@vitest/ui": "4.1.4",
+    "lint-staged": "^16.4.0",
+    "rimraf": "^6.1.3",
+    "simple-git-hooks": "^2.13.1",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.8",
+    "vite-plugin-dts": "^4.5.4",
+    "vitest": "^4.1.4"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "simple-git-hooks"
+    ]
+  }
+}
