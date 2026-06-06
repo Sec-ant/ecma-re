@@ -27,23 +27,21 @@ export function ecmaRe(
     externalFlags.includes("x") || hasLeadingGlobalVerboseFlag(pattern);
 
   // Parse the pattern into an AST
-  const parseResult = parse(pattern, verboseMode);
-
-  // If verbose mode was found in global flags but not in external flags,
-  // we need to re-parse with verbose preprocessing
-  let finalParseResult = parseResult;
-  if (parseResult.globalFlags.includes("x") && !verboseMode) {
-    finalParseResult = parse(pattern, true);
-  }
+  const parseResult = parse(pattern, verboseMode, {
+    allowVariableLengthLookbehind:
+      options?.allowVariableLengthLookbehind ?? false,
+  });
 
   // Transform AST from Python semantics to ES semantics
   const transformResult = transform(
-    finalParseResult.ast,
-    finalParseResult.globalFlags,
+    parseResult.ast,
+    parseResult.globalFlags,
     externalFlags,
     {
-      ascii: options?.ascii ?? false,
-      loose: options?.loose ?? false,
+      allowAtomicGroupApproximation:
+        options?.allowAtomicGroupApproximation ?? false,
+      allowPossessiveQuantifierApproximation:
+        options?.allowPossessiveQuantifierApproximation ?? false,
       onWarn: options?.onWarn,
     },
   );
@@ -55,7 +53,6 @@ export function ecmaRe(
   try {
     return new RegExp(source, esFlags);
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    throw new EcmaReError(`Failed to create RegExp: ${msg}`);
+    throw new EcmaReError(`Failed to create RegExp: ${String(e)}`);
   }
 }

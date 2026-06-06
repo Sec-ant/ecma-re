@@ -1,0 +1,6 @@
+allowBuilds:
+  esbuild: false
+  simple-git-hooks: false
+minimumReleaseAgeExclude:
+  - "@types/node@25.9.2"
+dedupePeers: true

@@ -15,6 +15,7 @@
 
     :root {
       color-scheme: light dark;
+      scrollbar-gutter: stable both-edges;
       --bg: #fafaf9;
       --fg: #1c1917;
       --muted: #78716c;
@@ -373,12 +374,16 @@
       </div>
       <div class="options">
         <label>
-          <input type="checkbox" id="opt-ascii" />
-          ascii
+          <input type="checkbox" id="opt-variable-lookbehind" />
+          allow variable-length lookbehind
         </label>
         <label>
-          <input type="checkbox" id="opt-loose" />
-          loose
+          <input type="checkbox" id="opt-atomic-approx" />
+          approximate atomic groups
+        </label>
+        <label>
+          <input type="checkbox" id="opt-possessive-approx" />
+          approximate possessive quantifiers
         </label>
       </div>
     </div>

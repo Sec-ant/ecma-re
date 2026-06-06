@@ -5,21 +5,26 @@ import { ecmaRe } from "../src/index";
 import { parse } from "../src/parser";
 import { transform } from "../src/transformer";
 
+const transformOptions = {
+  allowAtomicGroupApproximation: false,
+  allowPossessiveQuantifierApproximation: false,
+};
+
 const cases = {
   literal: {
     pattern: "hello",
     flags: "",
-    options: { ascii: false, loose: false },
+    options: transformOptions,
   },
   asciiCharClass: {
     pattern: "^[a-zA-Z_][a-zA-Z0-9_]{0,31}$",
-    flags: "",
-    options: { ascii: true, loose: false },
+    flags: "a",
+    options: transformOptions,
   },
   unicodeHeavy: {
     pattern: String.raw`^(?P<word>\w+)(?:\s+|,\s*)(?P=word)\b$`,
     flags: "",
-    options: { ascii: false, loose: false },
+    options: transformOptions,
   },
   verbosePattern: {
     pattern: String.raw`(?x)
@@ -33,12 +38,12 @@ const cases = {
       $
     `,
     flags: "",
-    options: { ascii: false, loose: false },
+    options: transformOptions,
   },
   nestedLookarounds: {
     pattern: String.raw`(?<!foo)(?P<name>[A-Za-z_]\w{0,15})(?=\s*=)(?:\s*=\s*)(?!0\d)\d+(?:\.\d+)?$`,
     flags: "",
-    options: { ascii: false, loose: false },
+    options: transformOptions,
   },
 } as const;
 

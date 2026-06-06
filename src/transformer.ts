@@ -25,38 +25,63 @@ export interface TransformResult {
 
 interface TransformContext {
   ascii: boolean;
-  loose: boolean;
+  allowAtomicGroupApproximation: boolean;
+  allowPossessiveQuantifierApproximation: boolean;
   multiline: boolean;
+  dotAll: boolean;
   onWarn?: (msg: string) => void;
   needsVFlag: boolean;
 }
+
+const ES_FLAG_I = 1;
+const ES_FLAG_M = 2;
+const ES_FLAG_S = 4;
+const ES_FLAG_V = 8;
+const ES_FLAGS_BY_MASK = [
+  "",
+  "i",
+  "m",
+  "im",
+  "s",
+  "is",
+  "ms",
+  "ims",
+  "v",
+  "iv",
+  "mv",
+  "imv",
+  "sv",
+  "isv",
+  "msv",
+  "imsv",
+] as const;
 
 export function transform(
   ast: Node,
   globalFlags: string,
   externalFlags: string,
   options: {
-    ascii: boolean;
-    loose: boolean;
+    allowAtomicGroupApproximation: boolean;
+    allowPossessiveQuantifierApproximation: boolean;
     onWarn?: (msg: string) => void;
   },
 ): TransformResult {
   // Resolve flags
   const allFlags = globalFlags + externalFlags;
 
-  let ascii = options.ascii;
-  const esFlags = new Set<string>();
+  let ascii = false;
+  let esFlagMask = 0;
 
   for (const f of allFlags) {
     switch (f) {
       case "i":
-        esFlags.add("i");
+        esFlagMask |= ES_FLAG_I;
         break;
       case "m":
-        esFlags.add("m");
+        esFlagMask |= ES_FLAG_M;
         break;
       case "s":
-        esFlags.add("s");
+        esFlagMask |= ES_FLAG_S;
         break;
       case "x":
         /* already handled by parser */ break;
@@ -64,7 +89,8 @@ export function transform(
         ascii = true;
         break;
       case "u":
-        /* noop, Python 3 default */ break;
+        ascii = false;
+        break;
       case "L":
         throw new EcmaReError("Locale flag (?L) is not supported");
     }
@@ -72,8 +98,11 @@ export function transform(
 
   const ctx: TransformContext = {
     ascii,
-    loose: options.loose,
-    multiline: esFlags.has("m"),
+    allowAtomicGroupApproximation: options.allowAtomicGroupApproximation,
+    allowPossessiveQuantifierApproximation:
+      options.allowPossessiveQuantifierApproximation,
+    multiline: (esFlagMask & ES_FLAG_M) !== 0,
+    dotAll: (esFlagMask & ES_FLAG_S) !== 0,
     onWarn: options.onWarn,
     needsVFlag: false,
   };
@@ -85,12 +114,12 @@ export function transform(
   const transformed = transformNode(ast, ctx);
 
   if (ctx.needsVFlag) {
-    esFlags.add("v");
+    esFlagMask |= ES_FLAG_V;
   }
 
   return {
     ast: transformed,
-    flags: Array.from(esFlags).join(""),
+    flags: ES_FLAGS_BY_MASK[esFlagMask]!,
     needsVFlag: ctx.needsVFlag,
   };
 }
@@ -101,7 +130,7 @@ function transformNode(node: Node, ctx: TransformContext): Node {
       return node;
 
     case "dot":
-      return node;
+      return transformDot(ctx);
 
     case "charClass":
       return transformCharClass(node, ctx);
@@ -136,9 +165,6 @@ function transformNode(node: Node, ctx: TransformContext): Node {
     case "comment":
       // Remove comments - return empty sequence
       return { type: "sequence", elements: [] } satisfies SequenceNode;
-
-    default:
-      return node;
   }
 }
 
@@ -149,7 +175,7 @@ function transformCharClass(
   const elements: CharClassMember[] = [];
   for (const elem of node.elements) {
     if (elem.type === "shorthand" && !ctx.ascii) {
-      elements.push(transformCharClassShorthand(elem, ctx));
+      elements.push(transformCharClassShorthand(elem));
     } else {
       elements.push(elem);
     }
@@ -157,12 +183,18 @@ function transformCharClass(
   return { ...node, elements };
 }
 
+function transformDot(ctx: TransformContext): Node {
+  if (ctx.dotAll) return { type: "dot" };
+  return {
+    type: "charClass",
+    negated: true,
+    elements: [{ type: "literal", value: 0x0a } satisfies CharClassLiteral],
+  } satisfies CharClassNode;
+}
+
 function transformCharClassShorthand(
   elem: CharClassShorthand,
-  ctx: TransformContext,
 ): CharClassMember {
-  if (ctx.ascii) return elem;
-
   switch (elem.kind) {
     case "d":
       return {
@@ -197,15 +229,13 @@ function transformCharClassShorthand(
       return elem; // handled in emitter
     case "W":
       return elem; // handled in emitter
-    default:
-      return elem;
   }
 }
 
 function transformGroup(node: GroupNode, ctx: TransformContext): Node {
   switch (node.kind) {
     case "atomic": {
-      if (!ctx.loose) {
+      if (!ctx.allowAtomicGroupApproximation) {
         throw new EcmaReError("Atomic groups (?>...) are not supported");
       }
       ctx.onWarn?.(
@@ -219,12 +249,21 @@ function transformGroup(node: GroupNode, ctx: TransformContext): Node {
     }
 
     case "modifier": {
-      // Handle modifier groups like (?i-m:...)
-      const body = transformNode(node.body, ctx);
       // Check for locale flag
       if (node.flags?.includes("L")) {
         throw new EcmaReError("Locale flag (?L) is not supported");
       }
+      const scopedCtx = { ...ctx };
+      if (node.flags?.includes("a")) scopedCtx.ascii = true;
+      if (node.flags?.includes("u")) scopedCtx.ascii = false;
+      if (node.flags?.includes("m")) scopedCtx.multiline = true;
+      if (node.negFlags?.includes("m")) scopedCtx.multiline = false;
+      if (node.flags?.includes("s")) scopedCtx.dotAll = true;
+      if (node.negFlags?.includes("s")) scopedCtx.dotAll = false;
+      if (!scopedCtx.ascii) scopedCtx.needsVFlag = true;
+      // Handle modifier groups like (?i-m:...)
+      const body = transformNode(node.body, scopedCtx);
+      ctx.needsVFlag ||= scopedCtx.needsVFlag;
       // Map Python flags to ES flags
       let flags = "";
       let negFlags = "";
@@ -276,7 +315,7 @@ function transformQuantifier(
   ctx: TransformContext,
 ): Node {
   if (node.possessive) {
-    if (!ctx.loose) {
+    if (!ctx.allowPossessiveQuantifierApproximation) {
       throw new EcmaReError("Possessive quantifiers are not supported");
     }
     ctx.onWarn?.("Possessive quantifier degraded to greedy quantifier");
@@ -373,8 +412,7 @@ function transformAssertion(node: AssertionNode, ctx: TransformContext): Node {
         return makeUnicodeWordBoundary(true);
       }
       return node;
-
-    default:
+    case "start":
       return node;
   }
 }
@@ -556,8 +594,6 @@ function transformShorthand(node: ShorthandNode, ctx: TransformContext): Node {
         name: "White_Space",
         negated: true,
       } satisfies UnicodePropertyNode;
-    default:
-      return node;
   }
 }
 

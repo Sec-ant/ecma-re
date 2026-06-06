@@ -72,6 +72,15 @@ function isInlineFlagChar(ch: string): boolean {
   return ch === "-" || isGlobalFlag(ch);
 }
 
+function isValidGroupName(name: string): boolean {
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(name);
+}
+
+interface Width {
+  min: number;
+  max: number;
+}
+
 export function hasLeadingGlobalVerboseFlag(pattern: string): boolean {
   if (pattern.charAt(0) !== "(" || pattern.charAt(1) !== "?") {
     return false;
@@ -92,10 +101,17 @@ export function hasLeadingGlobalVerboseFlag(pattern: string): boolean {
   return hasFlags && pattern.charAt(i) === ")" && hasVerboseFlag;
 }
 
-export function parse(pattern: string, verboseMode = false): ParseResult {
+export function parse(
+  pattern: string,
+  verboseMode = false,
+  options?: { allowVariableLengthLookbehind?: boolean },
+): ParseResult {
   // If verbose mode, preprocess the pattern first
   const input = verboseMode ? preprocessVerbose(pattern) : pattern;
-  const parser = new Parser(input);
+  const parser = new Parser(
+    input,
+    options?.allowVariableLengthLookbehind ?? false,
+  );
   const ast = parser.parsePattern();
   return {
     ast,
@@ -161,8 +177,10 @@ export function preprocessVerbose(pattern: string): string {
         while (i < pattern.length && pattern.charAt(i) !== ")") {
           i++;
         }
-        // skip the closing )
-        if (i < pattern.length) i++;
+        if (i >= pattern.length) {
+          throw new EcmaReError("Unterminated comment group", i);
+        }
+        i++; // skip the closing )
         continue;
       }
       while (i < pattern.length && pattern.charAt(i) !== "\n") {
@@ -191,8 +209,15 @@ class Parser {
   groupCount = 0;
   namedGroups: Map<string, number> = new Map();
   globalFlags = "";
+  private openGroups = new Set<number>();
+  private openNamedGroups = new Set<string>();
+  private groupWidths = new Map<number, Width>();
+  private namedGroupWidths = new Map<string, Width>();
 
-  constructor(private input: string) {}
+  constructor(
+    private input: string,
+    private allowVariableLengthLookbehind: boolean,
+  ) {}
 
   private get ch(): string {
     return this.input.charAt(this.pos);
@@ -274,7 +299,7 @@ class Parser {
     const elements: Node[] = [];
     while (!this.atEnd() && this.ch !== ")" && this.ch !== "|") {
       const node = this.parseQuantified();
-      if (node) elements.push(node);
+      elements.push(node);
     }
     if (elements.length === 0)
       return { type: "sequence", elements: [] } satisfies SequenceNode;
@@ -282,15 +307,15 @@ class Parser {
     return { type: "sequence", elements } satisfies SequenceNode;
   }
 
-  private parseQuantified(): Node | null {
+  private parseQuantified(): Node {
     const body = this.parseAtom();
-    if (!body) return null;
 
     // Check for quantifier
     if (this.atEnd()) return body;
 
     let min: number;
     let max: number;
+    const quantifierStart = this.pos;
 
     switch (this.ch) {
       case "*":
@@ -317,6 +342,10 @@ class Parser {
       }
       default:
         return body;
+    }
+
+    if (body.type === "assertion") {
+      throw new EcmaReError("Nothing to repeat", quantifierStart);
     }
 
     let greedy = true;
@@ -381,9 +410,7 @@ class Parser {
     return { min, max };
   }
 
-  private parseAtom(): Node | null {
-    if (this.atEnd()) return null;
-
+  private parseAtom(): Node {
     const ch = this.ch;
 
     switch (ch) {
@@ -407,12 +434,6 @@ class Parser {
 
       case "\\":
         return this.parseEscape();
-
-      case ")":
-        return null; // end of group
-
-      case "|":
-        return null; // handled by parseAlternation
 
       // Metacharacters that are errors outside context
       case "*":
@@ -469,36 +490,26 @@ class Parser {
 
     while (!this.atEnd() && this.ch !== "]") {
       const elem = this.parseCharClassElement();
-      if (!elem) break;
 
       // Check for range a-b
-      if (
-        this.ch === "-" &&
-        this.peek(1) !== "]" &&
-        this.peek(1) !== undefined
-      ) {
-        if (elem.type === "literal") {
-          this.advance(); // skip -
-          const next = this.parseCharClassElement();
-          if (next && next.type === "literal") {
-            elements.push({
-              type: "range",
-              from: elem.value,
-              to: next.value,
-            } satisfies CharClassRange);
-            continue;
-          }
-          if (next) {
-            // Range with non-literal end, push start, -, and end separately
-            elements.push(elem);
-            elements.push({
-              type: "literal",
-              value: "-".charCodeAt(0),
-            } satisfies CharClassLiteral);
-            elements.push(next);
-            continue;
-          }
+      if (this.ch === "-" && this.peek(1) !== "]" && this.peek(1) !== "") {
+        if (elem.type !== "literal") {
+          throw new EcmaReError("Bad character range", this.pos);
         }
+        this.advance(); // skip -
+        const next = this.parseCharClassElement();
+        if (next.type !== "literal") {
+          throw new EcmaReError("Bad character range", this.pos);
+        }
+        if (elem.value > next.value) {
+          throw new EcmaReError("Bad character range", this.pos);
+        }
+        elements.push({
+          type: "range",
+          from: elem.value,
+          to: next.value,
+        } satisfies CharClassRange);
+        continue;
       }
 
       elements.push(elem);
@@ -512,9 +523,7 @@ class Parser {
     return { type: "charClass", negated, elements };
   }
 
-  private parseCharClassElement(): CharClassMember | null {
-    if (this.atEnd() || this.ch === "]") return null;
-
+  private parseCharClassElement(): CharClassMember {
     if (this.ch === "\\") {
       return this.parseCharClassEscape();
     }
@@ -781,92 +790,49 @@ class Parser {
     return Number.parseInt(octal, 8);
   }
 
-  private parseNumericEscape(first: string, _escStart: number): Node {
-    // Try to parse as multi-digit number for backreference
-    let numStr = first;
+  private parseNumericEscape(first: string, escStart: number): Node {
+    const second = this.peek();
+    const third = this.peek(1);
 
-    // Collect up to 2 more digits
-    while (
-      numStr.length < 3 &&
-      !this.atEnd() &&
-      this.ch >= "0" &&
-      this.ch <= "9"
-    ) {
-      numStr += this.advance();
-    }
-
-    // Check for 3-digit octal starting with 1-3 followed by octal digits
     if (
-      numStr.length === 3 &&
       first >= "1" &&
-      first <= "3" &&
-      numStr[1]! >= "0" &&
-      numStr[1]! <= "7" &&
-      numStr[2]! >= "0" &&
-      numStr[2]! <= "7"
+      first <= "7" &&
+      second >= "0" &&
+      second <= "7" &&
+      third >= "0" &&
+      third <= "7"
     ) {
-      // Could be octal: check if it could also be a backreference
-      const num = Number.parseInt(numStr, 10);
-      if (num <= this.groupCount) {
-        // It's a backreference
-        return {
-          type: "backreference",
-          index: num,
-        } satisfies BackreferenceNode;
+      this.advance();
+      this.advance();
+      const value = Number.parseInt(`${first}${second}${third}`, 8);
+      if (value > 0xff) {
+        throw new EcmaReError(
+          "Octal escape outside of range 0-0o377",
+          escStart,
+        );
       }
-      // Treat as octal
-      return {
-        type: "literal",
-        value: Number.parseInt(numStr, 8),
-      } satisfies LiteralNode;
+      return { type: "literal", value } satisfies LiteralNode;
     }
 
-    // Try as backreference (possibly consuming fewer digits)
-    // Try the full number first, then progressively shorter
-    const num = Number.parseInt(numStr, 10);
-
-    // If it's a single digit 1-9, treat as backreference
-    // (the transformer will validate group count)
-    if (numStr.length === 1) {
-      return { type: "backreference", index: num } satisfies BackreferenceNode;
+    if (isDigit(second)) {
+      this.advance();
+      const index = Number.parseInt(`${first}${second}`, 10);
+      this.validateNumericBackreference(index, escStart);
+      return { type: "backreference", index } satisfies BackreferenceNode;
     }
 
-    // For multi-digit: if within group count, it's a backref
-    if (num <= this.groupCount) {
-      return { type: "backreference", index: num } satisfies BackreferenceNode;
-    }
+    const index = Number.parseInt(first, 10);
+    this.validateNumericBackreference(index, escStart);
+    return { type: "backreference", index } satisfies BackreferenceNode;
+  }
 
-    // Try shorter substrings
-    if (numStr.length === 3) {
-      // Try first 2 digits
-      const twoDigit = Number.parseInt(numStr.substring(0, 2), 10);
-      if (twoDigit <= this.groupCount) {
-        this.pos -= 1; // put back the third digit
-        return {
-          type: "backreference",
-          index: twoDigit,
-        } satisfies BackreferenceNode;
-      }
-      // Try first digit
-      const oneDigit = Number.parseInt(numStr[0]!, 10);
-      this.pos -= 2; // put back 2 digits
-      return {
-        type: "backreference",
-        index: oneDigit,
-      } satisfies BackreferenceNode;
+  private validateNumericBackreference(index: number, pos: number): void {
+    if (index > this.groupCount) {
+      throw new EcmaReError(`Invalid group reference ${index}`, pos);
     }
-
-    if (numStr.length === 2) {
-      // Try first digit
-      const oneDigit = Number.parseInt(numStr[0]!, 10);
-      this.pos -= 1; // put back second digit
-      return {
-        type: "backreference",
-        index: oneDigit,
-      } satisfies BackreferenceNode;
+    if (this.openGroups.has(index)) {
+      throw new EcmaReError(`Cannot refer to an open group ${index}`, pos);
     }
-
-    return { type: "backreference", index: num } satisfies BackreferenceNode;
   }
 
   private parseGroup(): Node {
@@ -910,13 +876,26 @@ class Parser {
               throw new EcmaReError("Unterminated group name", groupStart);
             this.advance(); // skip >
             if (!name) throw new EcmaReError("Empty group name", groupStart);
+            if (!isValidGroupName(name)) {
+              throw new EcmaReError("Invalid group name", groupStart);
+            }
+            if (this.namedGroups.has(name)) {
+              throw new EcmaReError("Duplicate group name", groupStart);
+            }
 
             this.groupCount++;
             const groupNum = this.groupCount;
             this.namedGroups.set(name, groupNum);
+            this.openGroups.add(groupNum);
+            this.openNamedGroups.add(name);
 
             const body = this.parseAlternation();
             this.expect(")");
+            const width = this.computeWidth(body);
+            this.groupWidths.set(groupNum, width);
+            this.namedGroupWidths.set(name, width);
+            this.openGroups.delete(groupNum);
+            this.openNamedGroups.delete(name);
             return {
               type: "group",
               kind: "named",
@@ -938,6 +917,24 @@ class Parser {
                 "Empty group name in backreference",
                 groupStart,
               );
+            if (!isValidGroupName(name)) {
+              throw new EcmaReError(
+                "Invalid group name in backreference",
+                groupStart,
+              );
+            }
+            if (!this.namedGroups.has(name)) {
+              throw new EcmaReError(
+                "Unknown group name in backreference",
+                groupStart,
+              );
+            }
+            if (this.openNamedGroups.has(name)) {
+              throw new EcmaReError(
+                "Cannot refer to an open group",
+                groupStart,
+              );
+            }
             return { type: "backreference", name } satisfies BackreferenceNode;
           }
           throw new EcmaReError(
@@ -974,6 +971,7 @@ class Parser {
             // Positive lookbehind (?<=...)
             this.advance();
             const body = this.parseAlternation();
+            this.requireFixedWidthLookbehind(body, groupStart);
             this.expect(")");
             return {
               type: "group",
@@ -985,6 +983,7 @@ class Parser {
             // Negative lookbehind (?<!...)
             this.advance();
             const body = this.parseAlternation();
+            this.requireFixedWidthLookbehind(body, groupStart);
             this.expect(")");
             return {
               type: "group",
@@ -1028,11 +1027,10 @@ class Parser {
           this.advance(); // skip ) closing the condition
 
           // Parse yes pattern
-          const yes = this.parseAlternation();
+          const yes = this.parseSequence();
           let no: Node | undefined;
           if (this.currentChar() === "|") {
             this.advance(); // skip |
-            // For conditional, the | inside is part of the conditional, not alternation
             no = this.parseAlternation();
           }
           this.expect(")");
@@ -1081,12 +1079,10 @@ class Parser {
               } satisfies GroupNode;
             }
             if (this.currentChar() === ")") {
-              // Global flag setting (?flags) - in middle of pattern, convert to group
-              this.advance();
-              // This sets flags for the rest of the pattern (Python behavior)
-              // We handle this as a global flag setting
-              this.globalFlags += flags;
-              return { type: "comment" } satisfies CommentNode; // treat as no-op
+              throw new EcmaReError(
+                "Global flags must be at pattern start",
+                groupStart,
+              );
             }
             throw new EcmaReError("Invalid flag group syntax", groupStart);
           }
@@ -1101,13 +1097,106 @@ class Parser {
     // Regular capturing group
     this.groupCount++;
     const groupNum = this.groupCount;
+    this.openGroups.add(groupNum);
     const body = this.parseAlternation();
     this.expect(")");
+    this.groupWidths.set(groupNum, this.computeWidth(body));
+    this.openGroups.delete(groupNum);
     return {
       type: "group",
       kind: "capturing",
       body,
       number: groupNum,
     } satisfies GroupNode;
+  }
+
+  private requireFixedWidthLookbehind(body: Node, pos: number): void {
+    if (this.allowVariableLengthLookbehind) return;
+    const width = this.computeWidth(body);
+    if (width.min !== width.max || width.max === Number.POSITIVE_INFINITY) {
+      throw new EcmaReError("Look-behind requires fixed-width pattern", pos);
+    }
+  }
+
+  private computeWidth(node: Node): Width {
+    switch (node.type) {
+      case "literal":
+      case "dot":
+      case "charClass":
+      case "shorthand":
+      case "unicodeProperty":
+        return { min: 1, max: 1 };
+      case "assertion":
+      case "comment":
+        return { min: 0, max: 0 };
+      case "backreference":
+        if (node.name) {
+          return (
+            this.namedGroupWidths.get(node.name) ?? {
+              min: 0,
+              max: Number.POSITIVE_INFINITY,
+            }
+          );
+        }
+        return (
+          this.groupWidths.get(node.index ?? 0) ?? {
+            min: 0,
+            max: Number.POSITIVE_INFINITY,
+          }
+        );
+      case "group":
+        switch (node.kind) {
+          case "lookahead":
+          case "negativeLookahead":
+          case "lookbehind":
+          case "negativeLookbehind":
+            return { min: 0, max: 0 };
+          default:
+            return this.computeWidth(node.body);
+        }
+      case "quantifier": {
+        const body = this.computeWidth(node.body);
+        return {
+          min: body.min * node.min,
+          max:
+            body.max === Number.POSITIVE_INFINITY ||
+            node.max === Number.POSITIVE_INFINITY
+              ? Number.POSITIVE_INFINITY
+              : body.max * node.max,
+        };
+      }
+      case "sequence": {
+        let min = 0;
+        let max = 0;
+        for (const element of node.elements) {
+          const width = this.computeWidth(element);
+          min += width.min;
+          max =
+            max === Number.POSITIVE_INFINITY ||
+            width.max === Number.POSITIVE_INFINITY
+              ? Number.POSITIVE_INFINITY
+              : max + width.max;
+        }
+        return { min, max };
+      }
+      case "alternation": {
+        let min = Number.POSITIVE_INFINITY;
+        let max = 0;
+        for (const alternative of node.alternatives) {
+          const width = this.computeWidth(alternative);
+          min = Math.min(min, width.min);
+          max = Math.max(max, width.max);
+        }
+        return { min, max };
+      }
+      case "conditional": {
+        const yes = this.computeWidth(node.yes);
+        const no = node.no ? this.computeWidth(node.no) : { min: 0, max: 0 };
+        return {
+          min: Math.min(yes.min, no.min),
+          max: Math.max(yes.max, no.max),
+        };
+      }
+    }
   }
 }

@@ -151,11 +151,13 @@ export type Node =
 // ── Options & Result ────────────────────────────────────────────────
 
 export interface EcmaReOptions {
-  /** Use ASCII semantics for \w, \d, \s, \b instead of Python Unicode semantics. */
-  ascii?: boolean;
-  /** Degrade gracefully on untranspilable features instead of throwing. */
-  loose?: boolean;
-  /** Warning callback for loose mode. */
+  /** Allow ECMAScript variable-length lookbehind, which Python's re rejects. */
+  allowVariableLengthLookbehind?: boolean;
+  /** Approximate Python atomic groups (?>...) as non-capturing groups (?:...). */
+  allowAtomicGroupApproximation?: boolean;
+  /** Approximate Python possessive quantifiers by dropping possessiveness. */
+  allowPossessiveQuantifierApproximation?: boolean;
+  /** Warning callback invoked when a feature is approximated. */
   onWarn?: (msg: string) => void;
 }
 
