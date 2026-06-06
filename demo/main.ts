@@ -2,6 +2,9 @@ import { ecmaRe } from "../src/index";
 
 function regexpFromLiteral(literal: string): RegExp {
   const delimiter = literal.lastIndexOf("/");
+  if (!literal.startsWith("/") || delimiter <= 0) {
+    throw new Error(`Invalid RegExp literal string: ${literal}`);
+  }
   return new RegExp(literal.slice(1, delimiter), literal.slice(delimiter + 1));
 }
 
