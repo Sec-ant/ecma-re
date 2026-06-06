@@ -38,7 +38,6 @@ export function ecmaRe(
     parseResult.globalFlags,
     externalFlags,
     {
-      ascii: options?.ascii ?? false,
       allowAtomicGroupApproximation:
         options?.allowAtomicGroupApproximation ?? false,
       allowPossessiveQuantifierApproximation:

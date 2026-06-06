@@ -38,7 +38,6 @@ export function transform(
   globalFlags: string,
   externalFlags: string,
   options: {
-    ascii: boolean;
     allowAtomicGroupApproximation: boolean;
     allowPossessiveQuantifierApproximation: boolean;
     onWarn?: (msg: string) => void;
@@ -47,7 +46,7 @@ export function transform(
   // Resolve flags
   const allFlags = globalFlags + externalFlags;
 
-  let ascii = options.ascii;
+  let ascii = false;
   const esFlags = new Set<string>();
 
   for (const f of allFlags) {
@@ -67,7 +66,8 @@ export function transform(
         ascii = true;
         break;
       case "u":
-        /* noop, Python 3 default */ break;
+        ascii = false;
+        break;
       case "L":
         throw new EcmaReError("Locale flag (?L) is not supported");
     }
@@ -231,12 +231,16 @@ function transformGroup(node: GroupNode, ctx: TransformContext): Node {
         throw new EcmaReError("Locale flag (?L) is not supported");
       }
       const scopedCtx = { ...ctx };
+      if (node.flags?.includes("a")) scopedCtx.ascii = true;
+      if (node.flags?.includes("u")) scopedCtx.ascii = false;
       if (node.flags?.includes("m")) scopedCtx.multiline = true;
       if (node.negFlags?.includes("m")) scopedCtx.multiline = false;
       if (node.flags?.includes("s")) scopedCtx.dotAll = true;
       if (node.negFlags?.includes("s")) scopedCtx.dotAll = false;
+      if (!scopedCtx.ascii) scopedCtx.needsVFlag = true;
       // Handle modifier groups like (?i-m:...)
       const body = transformNode(node.body, scopedCtx);
+      ctx.needsVFlag ||= scopedCtx.needsVFlag;
       // Map Python flags to ES flags
       let flags = "";
       let negFlags = "";

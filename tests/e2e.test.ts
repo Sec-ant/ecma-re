@@ -3,7 +3,7 @@ import { EcmaReError, ecmaRe } from "../src/index";
 
 describe("public API contract", () => {
   it("returns a native RegExp", () => {
-    const re = ecmaRe("(?P<word>[a-z]+)", "", { ascii: true });
+    const re = ecmaRe("(?P<word>[a-z]+)");
 
     expect(re).toBeInstanceOf(RegExp);
     expect("hello".match(re)?.groups?.word).toBe("hello");
@@ -17,10 +17,11 @@ describe("public API contract", () => {
   });
 
   it("accepts partial options", () => {
-    const re = ecmaRe("\\w+", undefined, { ascii: true });
+    const re = ecmaRe("(?<=ab|cde)f", undefined, {
+      allowVariableLengthLookbehind: true,
+    });
 
-    expect(re.test("abc_123")).toBe(true);
-    expect(re.flags).not.toContain("v");
+    expect(re.test("cdef")).toBe(true);
   });
 });
 
@@ -41,8 +42,7 @@ describe("flag API", () => {
       -
       (?P<month> \\d{2} )
       `,
-      "x",
-      { ascii: true },
+      "xa",
     );
 
     expect("2026-06".match(re)?.groups).toMatchObject({
@@ -69,9 +69,7 @@ describe("flag API", () => {
 
 describe("Python-to-ES transforms exposed through JS", () => {
   it("exposes Python named groups as JavaScript named groups", () => {
-    const re = ecmaRe("(?P<first>\\w+) (?P<last>\\w+)", "", {
-      ascii: true,
-    });
+    const re = ecmaRe("(?P<first>\\w+) (?P<last>\\w+)", "a");
 
     expect("Ada Lovelace".match(re)?.groups).toMatchObject({
       first: "Ada",
@@ -80,7 +78,7 @@ describe("Python-to-ES transforms exposed through JS", () => {
   });
 
   it("exposes Python named backreferences through JavaScript RegExp", () => {
-    const re = ecmaRe("(?P<word>[a-z]+)=(?P=word)", "", { ascii: true });
+    const re = ecmaRe("(?P<word>[a-z]+)=(?P=word)", "a");
 
     expect(re.test("token=token")).toBe(true);
     expect(re.test("token=value")).toBe(false);
@@ -95,7 +93,7 @@ describe("Python-to-ES transforms exposed through JS", () => {
   });
 
   it("matches a literal backspace control character outside character classes", () => {
-    const re = ecmaRe("\b", "", { ascii: true });
+    const re = ecmaRe("\b", "a");
 
     expect(re.test("\b")).toBe(true);
     expect(re.test("word")).toBe(false);
@@ -110,8 +108,8 @@ describe("Unicode and ASCII semantics", () => {
     expect(re.flags).toContain("v");
   });
 
-  it("uses ASCII semantics when requested", () => {
-    const re = ecmaRe("^\\w+\\s\\d+$", "", { ascii: true });
+  it("uses ASCII semantics through the Python a flag", () => {
+    const re = ecmaRe("^\\w+\\s\\d+$", "a");
 
     expect(re.test("abc 123")).toBe(true);
     expect(re.test("東京 १२३")).toBe(false);
@@ -132,8 +130,8 @@ describe("Unicode and ASCII semantics", () => {
   });
 
   it("keeps native ASCII word-boundary semantics in ASCII mode", () => {
-    const boundary = ecmaRe("\\bword\\b", "", { ascii: true });
-    const nonBoundary = ecmaRe("\\B_\\B", "", { ascii: true });
+    const boundary = ecmaRe("\\bword\\b", "a");
+    const nonBoundary = ecmaRe("\\B_\\B", "a");
 
     expect(boundary.test(" word ")).toBe(true);
     expect(boundary.test("swordfish")).toBe(false);
@@ -150,8 +148,7 @@ describe("strict mode and approximation options", () => {
 
   it("approximates explicitly enabled unsupported features and warns", () => {
     const onWarn = vi.fn();
-    const re = ecmaRe("(?>a++)b", "", {
-      ascii: true,
+    const re = ecmaRe("(?>a++)b", "a", {
       allowAtomicGroupApproximation: true,
       allowPossessiveQuantifierApproximation: true,
       onWarn,

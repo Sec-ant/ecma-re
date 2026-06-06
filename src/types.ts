@@ -151,8 +151,6 @@ export type Node =
 // ── Options & Result ────────────────────────────────────────────────
 
 export interface EcmaReOptions {
-  /** Use ASCII semantics for \w, \d, \s, \b instead of Python Unicode semantics. */
-  ascii?: boolean;
   /** Allow ECMAScript variable-length lookbehind, which Python's re rejects. */
   allowVariableLengthLookbehind?: boolean;
   /** Approximate Python atomic groups (?>...) as non-capturing groups (?:...). */

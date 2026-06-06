@@ -7,7 +7,7 @@ Transpile Python `re` module regex patterns into ECMAScript `RegExp` objects.
 - Full Python regex syntax parsing with a recursive-descent parser
 - Python-to-ES semantic transforms: named groups, verbose mode, anchors, octal escapes, and more
 - Unicode-correct `\w`, `\d`, `\s`, `\b` semantics aligned with Python defaults (via the `v` flag and Unicode properties)
-- Optional ASCII mode for simpler/faster output
+- Python `a` flag support for ASCII regex semantics
 - Python-compatible by default, with explicit opt-ins for JS extensions and approximations
 - Targets ES2025 regex features (modifier groups, `v` flag)
 - Zero runtime dependencies
@@ -42,8 +42,8 @@ const re2 = ecmaRe(
 );
 console.log(re2.test("Hello")); // true
 
-// ASCII mode — keep ES native \w, \d, \s (no Unicode expansion)
-const re3 = ecmaRe("\\w+", "", { ascii: true });
+// ASCII mode — use Python's a flag for re.ASCII semantics
+const re3 = ecmaRe("\\w+", "a");
 
 // Explicit approximation — degrade instead of throwing for this feature
 const re4 = ecmaRe("a++", "", {
@@ -82,7 +82,6 @@ function ecmaRe(pattern: string, flags?: string, options?: EcmaReOptions): RegEx
 
 ```ts
 interface EcmaReOptions {
-  ascii?: boolean;
   allowVariableLengthLookbehind?: boolean;
   allowAtomicGroupApproximation?: boolean;
   allowPossessiveQuantifierApproximation?: boolean;
@@ -92,7 +91,6 @@ interface EcmaReOptions {
 
 | Option                                      | Type                    | Default             | Description                                                                                                                                                                         |
 | ------------------------------------------- | ----------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ascii`                                     | `boolean`               | `undefined` (falsy) | When falsy, Unicode mode is active: `\w`, `\d`, `\s`, `\b` expand to Unicode property classes, and the `v` flag is set. When `true`, these shorthands use ES native ASCII behavior. |
 | `allowVariableLengthLookbehind`             | `boolean`               | `undefined` (falsy) | Allows ECMAScript variable-length lookbehind even though Python `re` rejects it.                                                                                                    |
 | `allowAtomicGroupApproximation`             | `boolean`               | `undefined` (falsy) | Approximates `(?>...)` as `(?:...)`. This can change matching semantics and emits `onWarn` when used.                                                                               |
 | `allowPossessiveQuantifierApproximation`    | `boolean`               | `undefined` (falsy) | Approximates possessive quantifiers by dropping possessiveness. This can change matching semantics and emits `onWarn` when used.                                                    |
@@ -116,9 +114,9 @@ Thrown on parse errors and untranspilable features. The `position` field indicat
 | `m`  | Multiline (`^`/`$` match line boundaries)  | Mapped to ES `m` flag                  |
 | `s`  | Dot matches newline                        | Mapped to ES `s` flag                  |
 | `x`  | Verbose mode (whitespace/comments ignored) | Preprocessed before parsing            |
-| `a`  | ASCII mode                                 | Equivalent to `{ ascii: true }` option |
+| `a`  | ASCII mode                                 | Enables Python `re.ASCII` semantics for `\w`, `\d`, `\s`, `\b` |
 
-Inline flags `(?imsx)` at the start of a pattern are also supported. Scoped modifier groups like `(?i-m:...)` are passed through to ES2025 natively.
+Inline flags `(?aimsux)` at the start of a pattern are also supported. Scoped modifier groups like `(?i-m:...)`, `(?a:...)`, and `(?u:...)` are supported.
 
 ## Feature Support
 
@@ -144,7 +142,7 @@ Inline flags `(?imsx)` at the start of a pattern are also supported. Scoped modi
 
 ### Unicode mode (default)
 
-When `ascii` is falsy (the default), the output uses the `v` flag and Unicode property escapes:
+When Python ASCII mode is not active, the output uses the `v` flag and Unicode property escapes:
 
 | Python      | ES output                                         |
 | ----------- | ------------------------------------------------- |

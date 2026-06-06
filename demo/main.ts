@@ -16,7 +16,6 @@ const groupsDetails = document.getElementById(
 ) as HTMLDetailsElement;
 const groupsList = document.getElementById("groups-list") as HTMLDivElement;
 const examplesEl = document.getElementById("examples") as HTMLDivElement;
-const optAscii = document.getElementById("opt-ascii") as HTMLInputElement;
 const optVariableLookbehind = document.getElementById(
   "opt-variable-lookbehind",
 ) as HTMLInputElement;
@@ -34,7 +33,6 @@ interface Example {
   pattern: string;
   flags: string;
   test: string;
-  ascii?: boolean;
   allowVariableLengthLookbehind?: boolean;
   allowAtomicGroupApproximation?: boolean;
   allowPossessiveQuantifierApproximation?: boolean;
@@ -139,7 +137,6 @@ function loadExample(ex: Example) {
   patternEl.value = ex.pattern;
   flagsEl.value = ex.flags;
   testStringEl.value = ex.test;
-  optAscii.checked = ex.ascii ?? false;
   optVariableLookbehind.checked = ex.allowVariableLengthLookbehind ?? false;
   optAtomicApprox.checked = ex.allowAtomicGroupApproximation ?? false;
   optPossessiveApprox.checked =
@@ -167,7 +164,6 @@ function update() {
 
   try {
     currentRegex = ecmaRe(pattern, flags, {
-      ascii: optAscii.checked,
       allowVariableLengthLookbehind: optVariableLookbehind.checked,
       allowAtomicGroupApproximation: optAtomicApprox.checked,
       allowPossessiveQuantifierApproximation: optPossessiveApprox.checked,

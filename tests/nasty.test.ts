@@ -22,8 +22,7 @@ describe("nested captures and backreferences", () => {
   it("matches nested named groups and named backreferences", () => {
     const re = ecmaRe(
       "(?P<outer>(?P<inner>[a-z]+)-(?P=inner))_(?P=outer)",
-      "",
-      { ascii: true },
+      "a",
     );
 
     expect(re.test("abc-abc_abc-abc")).toBe(true);
@@ -55,23 +54,21 @@ describe("lookaround combinations", () => {
   });
 
   it("allows fixed-width backreferences inside lookbehind", () => {
-    const re = ecmaRe("(a)(?<=\\1)b", "", { ascii: true });
+    const re = ecmaRe("(a)(?<=\\1)b", "a");
 
     expect(re.test("ab")).toBe(true);
     expect(re.test("bb")).toBe(false);
   });
 
   it("treats nested lookarounds inside lookbehind as zero-width", () => {
-    const re = ecmaRe("(?<=(?=a))a", "", { ascii: true });
+    const re = ecmaRe("(?<=(?=a))a", "a");
 
     expect(re.test("a")).toBe(true);
     expect(re.test("b")).toBe(false);
   });
 
   it("checks conditional width before rejecting conditionals as unsupported", () => {
-    expect(() => ecmaRe("(a)?(?<=(?(1)a|b))c", "", { ascii: true })).toThrow(
-      EcmaReError,
-    );
+    expect(() => ecmaRe("(a)?(?<=(?(1)a|b))c", "a")).toThrow(EcmaReError);
   });
 
   it("combines negative lookbehind and negative lookahead", () => {
@@ -83,7 +80,7 @@ describe("lookaround combinations", () => {
   });
 
   it("uses captures from lookahead in a later backreference", () => {
-    const re = ecmaRe("(?=(a+))\\1b", "", { ascii: true });
+    const re = ecmaRe("(?=(a+))\\1b", "a");
 
     expect(re.test("aaab")).toBe(true);
     expect("aaab".match(re)?.[1]).toBe("aaa");
@@ -102,8 +99,7 @@ describe("real-world Python patterns", () => {
        (?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)
        \\Z
       `,
-      "",
-      { ascii: true },
+      "a",
     );
 
     expect(re.test("192.168.1.1")).toBe(true);
@@ -120,8 +116,7 @@ describe("real-world Python patterns", () => {
        (?:\\.(?P<frac>\\d+))?
        (?P<tz>Z|[+-]\\d{2}:\\d{2})?
       `,
-      "",
-      { ascii: true },
+      "a",
     );
 
     const match = "2024-12-31 23:59:59.999+08:00".match(re);
@@ -146,8 +141,7 @@ describe("real-world Python patterns", () => {
        (?:\\?(?P<query>[^#]*))?
        (?:\\#(?P<frag>.*))?
       `,
-      "",
-      { ascii: true },
+      "a",
     );
 
     expect(
@@ -174,8 +168,7 @@ describe("real-world Python patterns", () => {
        \\s+\\[(?P<level>DEBUG|INFO|WARN|ERROR|FATAL)\\]
        \\s+(?P<module>[\\w.]+)\\s*-\\s*(?P<message>.+)
       `,
-      "",
-      { ascii: true },
+      "a",
     );
 
     const line =
@@ -195,8 +188,7 @@ describe("verbose, comments, and scoped modifiers", () => {
        [abc   # still literal inside the class
         def]
       `,
-      "",
-      { ascii: true },
+      "a",
     );
 
     expect(re.test("a")).toBe(true);
@@ -209,8 +201,7 @@ describe("verbose, comments, and scoped modifiers", () => {
       `(?x)
        [^]#] # real comment outside the class
       `,
-      "",
-      { ascii: true },
+      "a",
     );
 
     expect(re.test("a")).toBe(true);
@@ -227,21 +218,21 @@ describe("verbose, comments, and scoped modifiers", () => {
   });
 
   it("strips inline comment groups in verbose mode", () => {
-    const re = ecmaRe("(?x)a(?# ignored ) b", "", { ascii: true });
+    const re = ecmaRe("(?x)a(?# ignored ) b", "a");
 
     expect(re.test("ab")).toBe(true);
     expect(re.test("a b")).toBe(false);
   });
 
   it("strips verbose line comments through end of input", () => {
-    const re = ecmaRe("(?x)a # trailing comment", "", { ascii: true });
+    const re = ecmaRe("(?x)a # trailing comment", "a");
 
     expect(re.test("a")).toBe(true);
     expect(re.test("#")).toBe(false);
   });
 
   it("removes a trailing inline comment group without changing the atom", () => {
-    const re = ecmaRe("a(?# only comment)", "", { ascii: true });
+    const re = ecmaRe("a(?# only comment)", "a");
 
     expect("ba".match(re)?.index).toBe(1);
     expect(re.test("b")).toBe(false);
@@ -250,20 +241,17 @@ describe("verbose, comments, and scoped modifiers", () => {
 
 describe("syntax edge cases", () => {
   it("treats invalid brace quantifier forms as literals where Python does", () => {
-    expect(ecmaRe("^a{2,}$", "", { ascii: true }).test("aaa")).toBe(true);
-    expect(ecmaRe("^a{b}$", "", { ascii: true }).test("a{b}")).toBe(true);
-    expect(ecmaRe("^a{2x}$", "", { ascii: true }).test("a{2x}")).toBe(true);
-    expect(ecmaRe("^{\\}$", "", { ascii: true }).test("{}")).toBe(true);
+    expect(ecmaRe("^a{2,}$", "a").test("aaa")).toBe(true);
+    expect(ecmaRe("^a{b}$", "a").test("a{b}")).toBe(true);
+    expect(ecmaRe("^a{2x}$", "a").test("a{2x}")).toBe(true);
+    expect(ecmaRe("^{\\}$", "a").test("{}")).toBe(true);
   });
 
   it("handles escaped regex metacharacters as literals", () => {
-    const outside = ecmaRe("^\\*\\+\\{\\}\\|\\^\\$\\/\\-$", "", {
-      ascii: true,
-    });
+    const outside = ecmaRe("^\\*\\+\\{\\}\\|\\^\\$\\/\\-$", "a");
     const inside = ecmaRe(
       "^[\\]\\[\\^\\.\\*\\+\\?\\(\\)\\{\\}\\|\\/\\$\\x41\\u0042]+$",
-      "",
-      { ascii: true },
+      "a",
     );
 
     expect(outside.test("*+{}|^$/-")).toBe(true);
@@ -272,7 +260,7 @@ describe("syntax edge cases", () => {
   });
 
   it("handles leading ] literals and octal escapes inside character classes", () => {
-    const re = ecmaRe("^[]\\141\\0\\xAF\\u00AF]+$", "", { ascii: true });
+    const re = ecmaRe("^[]\\141\\0\\xAF\\u00AF]+$", "a");
 
     expect(re.test("]a\0¯")).toBe(true);
     expect(re.test("b")).toBe(false);
@@ -281,20 +269,19 @@ describe("syntax edge cases", () => {
   it("handles low-frequency escapes inside character classes", () => {
     const re = ecmaRe(
       "^[\\w\\W\\D\\S\\b\\x08\\n\\r\\t\\f\\v\\a\\\\\\-\\&]+$",
-      "",
-      { ascii: true },
+      "a",
     );
 
     expect(re.test("A!\b\n\r\t\f\v\u0007\\-&")).toBe(true);
   });
 
   it("rejects character-class ranges whose endpoint is not a literal", () => {
-    expect(() => ecmaRe("[a-\\d]", "", { ascii: true })).toThrow(EcmaReError);
-    expect(() => ecmaRe("[\\d-a]", "", { ascii: true })).toThrow(EcmaReError);
+    expect(() => ecmaRe("[a-\\d]", "a")).toThrow(EcmaReError);
+    expect(() => ecmaRe("[\\d-a]", "a")).toThrow(EcmaReError);
   });
 
   it("treats a trailing dash before ] as a character-class literal", () => {
-    const re = ecmaRe("^[a-]$", "", { ascii: true });
+    const re = ecmaRe("^[a-]$", "a");
 
     expect(re.test("a")).toBe(true);
     expect(re.test("-")).toBe(true);
@@ -343,7 +330,7 @@ describe("syntax edge cases", () => {
       "[\\",
       "[a-",
     ]) {
-      expect(() => ecmaRe(pattern, "", { ascii: true })).toThrow(EcmaReError);
+      expect(() => ecmaRe(pattern, "a")).toThrow(EcmaReError);
     }
   });
 });
@@ -395,8 +382,7 @@ describe("everything combined", () => {
        </(?P=tag)>
        \\Z
       `,
-      "s",
-      { ascii: true },
+      "sa",
     );
 
     expect(
@@ -412,8 +398,7 @@ describe("everything combined", () => {
 
   it("approximates multiple explicitly enabled constructs in one pattern", () => {
     const onWarn = vi.fn();
-    const re = ecmaRe("(?P<word>[a-z]++)@(?>[a-z]++\\.[a-z]++)", "", {
-      ascii: true,
+    const re = ecmaRe("(?P<word>[a-z]++)@(?>[a-z]++\\.[a-z]++)", "a", {
       allowAtomicGroupApproximation: true,
       allowPossessiveQuantifierApproximation: true,
       onWarn,
