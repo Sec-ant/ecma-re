@@ -1,12 +1,24 @@
 import { describe, expect, it, vi } from "vitest";
-import { EcmaReError, ecmaRe } from "../src/index";
+import { EcmaReError, ecmaRe as ecmaReLiteral } from "../src/index";
+import { compileEcmaRe } from "./helpers";
+
+const ecmaRe = compileEcmaRe;
 
 describe("public API contract", () => {
-  it("returns a native RegExp", () => {
-    const re = ecmaRe("(?P<word>[a-z]+)");
+  it("returns a RegExp literal string", () => {
+    const literal = ecmaReLiteral("(?P<word>[a-z]+)");
+    const re = compileEcmaRe("(?P<word>[a-z]+)");
 
-    expect(re).toBeInstanceOf(RegExp);
+    expect(literal).toBe("/(?<word>[a-z]+)/v");
     expect("hello".match(re)?.groups?.word).toBe("hello");
+  });
+
+  it("serializes literal strings using RegExp toString shape", () => {
+    expect(ecmaReLiteral("")).toBe("/(?:)/v");
+    expect(ecmaReLiteral("/", "a")).toBe("/\\//");
+    expect(ecmaReLiteral("[/]", "a")).toBe("/[\\/]/");
+    expect(ecmaReLiteral("\u2028", "a")).toBe("/\\u2028/");
+    expect(ecmaReLiteral("\u2029", "a")).toBe("/\\u2029/");
   });
 
   it("defaults flags and options", () => {
@@ -219,7 +231,7 @@ describe("error surface", () => {
     }
   });
 
-  it("throws EcmaReError when emitted RegExp construction fails", () => {
+  it("throws EcmaReError for unsupported named Unicode escapes", () => {
     expect(() => ecmaRe("\\N{LATIN SMALL LETTER A}")).toThrow(EcmaReError);
   });
 

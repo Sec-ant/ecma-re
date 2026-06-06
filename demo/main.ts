@@ -1,5 +1,13 @@
 import { ecmaRe } from "../src/index";
 
+function regexpFromLiteral(literal: string): RegExp {
+  const delimiter = literal.lastIndexOf("/");
+  if (!literal.startsWith("/") || delimiter <= 0) {
+    throw new Error(`Invalid RegExp literal string: ${literal}`);
+  }
+  return new RegExp(literal.slice(1, delimiter), literal.slice(delimiter + 1));
+}
+
 // --- DOM elements ---
 
 const patternEl = document.getElementById("pattern") as HTMLTextAreaElement;
@@ -163,12 +171,13 @@ function update() {
   }
 
   try {
-    currentRegex = ecmaRe(pattern, flags, {
+    const literal = ecmaRe(pattern, flags, {
       allowVariableLengthLookbehind: optVariableLookbehind.checked,
       allowAtomicGroupApproximation: optAtomicApprox.checked,
       allowPossessiveQuantifierApproximation: optPossessiveApprox.checked,
     });
-    outputEl.textContent = String(currentRegex);
+    outputEl.textContent = literal;
+    currentRegex = regexpFromLiteral(literal);
   } catch (e: unknown) {
     errorEl.textContent = e instanceof Error ? e.message : String(e);
     errorEl.classList.add("visible");
