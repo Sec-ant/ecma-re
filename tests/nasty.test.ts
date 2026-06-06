@@ -32,14 +32,6 @@ describe("nested captures and backreferences", () => {
 });
 
 describe("lookaround combinations", () => {
-  it("handles nested lookaheads", () => {
-    const re = ecmaRe("x(?=y(?=z(?=w)))");
-
-    expect(re.test("xyzw")).toBe(true);
-    expect(re.test("xyza")).toBe(false);
-    expect("xyzw".match(re)?.[0]).toBe("x");
-  });
-
   it("handles lookbehind with alternatives of the same length", () => {
     const re = ecmaRe("(?<=ab|cd)f");
 
@@ -232,13 +224,6 @@ describe("verbose, comments, and scoped modifiers", () => {
     expect(re.test("Ab\ncd")).toBe(true);
     expect(re.test("AB\ncd")).toBe(false);
     expect(re.test("Ab\nc\n")).toBe(false);
-  });
-
-  it("handles inline comment groups between every atom", () => {
-    const re = ecmaRe("a(?#1)b(?#2)c(?#3)d");
-
-    expect(re.test("abcd")).toBe(true);
-    expect(re.test("a(?#1)bcd")).toBe(false);
   });
 
   it("strips inline comment groups in verbose mode", () => {

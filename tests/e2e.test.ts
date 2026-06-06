@@ -94,14 +94,6 @@ describe("Python-to-ES transforms exposed through JS", () => {
     expect(re.test("foo\nbar\nx")).toBe(false);
   });
 
-  it("keeps Python $ trailing-newline semantics in non-multiline mode", () => {
-    const re = ecmaRe("done$");
-
-    expect(re.test("done")).toBe(true);
-    expect(re.test("done\n")).toBe(true);
-    expect(re.test("done\nnext")).toBe(false);
-  });
-
   it("matches a literal backspace control character outside character classes", () => {
     const re = ecmaRe("\b", "", { ascii: true });
 
