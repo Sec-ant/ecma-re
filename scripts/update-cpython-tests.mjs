@@ -33,6 +33,11 @@ const PUNCTUATION_NODES = new Set([
   "Comment",
 ]);
 
+function exitWithUsageError(message) {
+  console.error(`Error: ${message}`);
+  process.exit(1);
+}
+
 function parseArgs(argv) {
   const args = {
     source: DEFAULT_SOURCE_URL,
@@ -45,10 +50,16 @@ function parseArgs(argv) {
     if (arg === "--dry-run") {
       args.dryRun = true;
     } else if (arg === "--source") {
+      if (argv[index + 1] === undefined || argv[index + 1].startsWith("--")) {
+        exitWithUsageError("Missing value for --source");
+      }
       args.source = argv[++index];
     } else if (arg.startsWith("--source=")) {
       args.source = arg.slice("--source=".length);
     } else if (arg === "--out") {
+      if (argv[index + 1] === undefined || argv[index + 1].startsWith("--")) {
+        exitWithUsageError("Missing value for --out");
+      }
       args.out = argv[++index];
     } else if (arg.startsWith("--out=")) {
       args.out = arg.slice("--out=".length);
@@ -243,6 +254,14 @@ function decodePythonEscapes(body) {
   return output;
 }
 
+function directChildren(node) {
+  const direct = [];
+  for (let child = node.firstChild; child; child = child.nextSibling) {
+    direct.push(child);
+  }
+  return direct;
+}
+
 function evaluateNode(source, node) {
   switch (node.name) {
     case "String":
@@ -262,7 +281,11 @@ function evaluateNode(source, node) {
       return children(node).map((child) => evaluateNode(source, child));
     case "BinaryExpression": {
       const parts = children(node);
-      if (parts.length !== 2 || textOf(source, node).includes("-")) {
+      const operator = directChildren(node).find(
+        (part) => part.name === "ArithOp",
+      );
+      const operatorText = operator ? textOf(source, operator) : "";
+      if (parts.length !== 2 || operatorText !== "+") {
         throw new Error(
           `Unsupported binary expression: ${textOf(source, node)}`,
         );

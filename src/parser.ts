@@ -501,6 +501,9 @@ class Parser {
         if (next.type !== "literal") {
           throw new EcmaReError("Bad character range", this.pos);
         }
+        if (elem.value > next.value) {
+          throw new EcmaReError("Bad character range", this.pos);
+        }
         elements.push({
           type: "range",
           from: elem.value,
