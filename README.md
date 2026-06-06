@@ -8,11 +8,12 @@ Transpile Python `re` module regex patterns into ECMAScript `RegExp` objects.
 - Python-to-ES semantic transforms: named groups, verbose mode, anchors, octal escapes, and more
 - Unicode-correct `\w`, `\d`, `\s`, `\b` semantics aligned with Python defaults (via the `v` flag and Unicode properties)
 - Optional ASCII mode for simpler/faster output
-- Strict mode by default; optional loose mode that degrades gracefully on untranspilable features
+- Python-compatible by default, with explicit opt-ins for JS extensions and approximations
 - Targets ES2025 regex features (modifier groups, `v` flag)
 - Zero runtime dependencies
 - ESM and CJS dual output with full TypeScript declarations
-- 615 tests passing (458 ported from CPython `re_tests.py` + 157 end-to-end)
+- Generated CPython compatibility tests plus focused API/stress tests
+- Coverage reporting via `pnpm test:coverage`
 
 ## Installation
 
@@ -44,12 +45,17 @@ console.log(re2.test("Hello")); // true
 // ASCII mode — keep ES native \w, \d, \s (no Unicode expansion)
 const re3 = ecmaRe("\\w+", "", { ascii: true });
 
-// Loose mode — degrade instead of throwing on unsupported features
+// Explicit approximation — degrade instead of throwing for this feature
 const re4 = ecmaRe("a++", "", {
-  loose: true,
+  allowPossessiveQuantifierApproximation: true,
   onWarn: (msg) => console.warn(msg),
 });
 // Possessive quantifier degrades to greedy: /a+/
+
+// Explicit JS extension — allow variable-length lookbehind that Python rejects
+const re5 = ecmaRe("(?<=ab|cde)f", "", {
+  allowVariableLengthLookbehind: true,
+});
 ```
 
 ## API Reference
@@ -77,16 +83,20 @@ function ecmaRe(pattern: string, flags?: string, options?: EcmaReOptions): RegEx
 ```ts
 interface EcmaReOptions {
   ascii?: boolean;
-  loose?: boolean;
+  allowVariableLengthLookbehind?: boolean;
+  allowAtomicGroupApproximation?: boolean;
+  allowPossessiveQuantifierApproximation?: boolean;
   onWarn?: (msg: string) => void;
 }
 ```
 
-| Option   | Type                    | Default             | Description                                                                                                                                                                         |
-| -------- | ----------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ascii`  | `boolean`               | `undefined` (falsy) | When falsy, Unicode mode is active: `\w`, `\d`, `\s`, `\b` expand to Unicode property classes, and the `v` flag is set. When `true`, these shorthands use ES native ASCII behavior. |
-| `loose`  | `boolean`               | `undefined` (falsy) | When falsy, strict mode is active: untranspilable features throw `EcmaReError`. When `true`, they degrade gracefully and emit warnings via `onWarn`.                                  |
-| `onWarn` | `(msg: string) => void` | `undefined`         | Warning callback invoked in loose mode when a feature is degraded.                                                                                                                  |
+| Option                                      | Type                    | Default             | Description                                                                                                                                                                         |
+| ------------------------------------------- | ----------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ascii`                                     | `boolean`               | `undefined` (falsy) | When falsy, Unicode mode is active: `\w`, `\d`, `\s`, `\b` expand to Unicode property classes, and the `v` flag is set. When `true`, these shorthands use ES native ASCII behavior. |
+| `allowVariableLengthLookbehind`             | `boolean`               | `undefined` (falsy) | Allows ECMAScript variable-length lookbehind even though Python `re` rejects it.                                                                                                    |
+| `allowAtomicGroupApproximation`             | `boolean`               | `undefined` (falsy) | Approximates `(?>...)` as `(?:...)`. This can change matching semantics and emits `onWarn` when used.                                                                               |
+| `allowPossessiveQuantifierApproximation`    | `boolean`               | `undefined` (falsy) | Approximates possessive quantifiers by dropping possessiveness. This can change matching semantics and emits `onWarn` when used.                                                    |
+| `onWarn`                                    | `(msg: string) => void` | `undefined`         | Warning callback invoked when an approximation option changes pattern semantics.                                                                                                    |
 
 ### `EcmaReError`
 
@@ -143,22 +153,23 @@ When `ascii` is falsy (the default), the output uses the `v` flag and Unicode pr
 | `\s` / `\S` | `\p{White_Space}` / `\P{White_Space}`             |
 | `\b` / `\B` | Lookaround-based Unicode word boundary assertions |
 
-### Unsupported features
+### Python compatibility escapes
 
-| Feature                                 | Strict (default)   | Loose (`{ loose: true }`)                |
-| --------------------------------------- | ------------------ | ---------------------------------------- |
-| `*+`, `++`, `?+` possessive quantifiers | Throws `EcmaReError` | Degrades to greedy                       |
-| `{m,n}+` possessive                     | Throws `EcmaReError` | Degrades to greedy `{m,n}`               |
-| `(?>...)` atomic group                  | Throws `EcmaReError` | Degrades to `(?:...)`                    |
-| `(?(id)yes\|no)` conditional            | Throws `EcmaReError` | Throws `EcmaReError` (no safe degradation) |
-| `(?L)` locale flag                      | Throws `EcmaReError` | Throws `EcmaReError`                       |
+| Feature                                 | Default behavior     | Explicit opt-in                                           |
+| --------------------------------------- | -------------------- | --------------------------------------------------------- |
+| Variable-length lookbehind             | Throws `EcmaReError` | Allowed with `allowVariableLengthLookbehind`              |
+| `*+`, `++`, `?+` possessive quantifiers | Throws `EcmaReError` | Approximates with `allowPossessiveQuantifierApproximation` |
+| `{m,n}+` possessive                     | Throws `EcmaReError` | Approximates with `allowPossessiveQuantifierApproximation` |
+| `(?>...)` atomic group                  | Throws `EcmaReError` | Approximates with `allowAtomicGroupApproximation`         |
+| `(?(id)yes\|no)` conditional            | Throws `EcmaReError` | No opt-in: no safe ECMAScript representation              |
+| `(?L)` locale flag                      | Throws `EcmaReError` | No opt-in: locale regex semantics are not supported       |
 
 ## How It Works
 
 ecma-re uses a three-stage compiler pipeline:
 
 1. **Parser** -- Recursive-descent, single-pass parser (no separate lexer) that produces a typed AST from the Python regex string. Verbose mode (`x` flag) preprocessing strips whitespace and comments before parsing.
-2. **Transformer** -- Rewrites AST nodes from Python semantics to ES semantics: resolves flags, rewrites named groups, expands Unicode shorthands, transforms anchors, and handles unsupported features based on strict/loose mode.
+2. **Transformer** -- Rewrites AST nodes from Python semantics to ES semantics: resolves flags, rewrites named groups, expands Unicode shorthands, transforms anchors, and applies explicit approximation options.
 3. **Emitter** -- Serializes the transformed AST into an ES regex source string with the appropriate flags, then constructs a native `RegExp`.
 
 ## License

@@ -84,10 +84,9 @@ function emitCodePoint(
       case 0x07:
         return "\\x07";
       case 0x08:
-        return "\\b";
+        return inCharClass ? "\\b" : "\\x08";
       default:
-        if (cp <= 0xff) return `\\x${cp.toString(16).padStart(2, "0")}`;
-        return `\\u${cp.toString(16).padStart(4, "0")}`;
+        return `\\x${cp.toString(16).padStart(2, "0")}`;
     }
   }
 
@@ -128,8 +127,6 @@ function emitNode(node: Node, inCharClass: boolean, useVFlag: boolean): string {
     case "conditional":
       // Should have been transformed or errored before emission
       return EMPTY;
-    default:
-      return EMPTY;
   }
 }
 
@@ -167,8 +164,6 @@ function emitCharClassMember(elem: CharClassMember, useVFlag: boolean): string {
       return "\\b";
     case "unicodeProperty":
       return emitCharClassUnicodeProperty(elem);
-    default:
-      return EMPTY;
   }
 }
 
@@ -226,8 +221,6 @@ function emitGroup(node: GroupNode, useVFlag: boolean): string {
       prefix += ":";
       return `${prefix}${body})`;
     }
-    default:
-      return `(?:${body})`;
   }
 }
 
@@ -251,7 +244,6 @@ function emitQuantifier(node: QuantifierNode, useVFlag: boolean): string {
   }
 
   if (!node.greedy) q += "?";
-  if (node.possessive) q += "+"; // shouldn't happen after transform
 
   return wrappedBody + q;
 }
@@ -296,8 +288,6 @@ function emitAssertion(node: AssertionNode): string {
       return "(?<!.)";
     case "endOfString":
       return "(?!.)";
-    default:
-      return "";
   }
 }
 
@@ -316,8 +306,19 @@ function emitUnicodeProperty(node: UnicodePropertyNode): string {
 
 function emitSequence(node: SequenceNode, useVFlag: boolean): string {
   let result = EMPTY;
-  for (const element of node.elements) {
-    result += emitNode(element, false, useVFlag);
+  for (let index = 0; index < node.elements.length; index++) {
+    const element = node.elements[index]!;
+    const previous = node.elements[index - 1];
+    if (
+      previous?.type === "backreference" &&
+      element.type === "literal" &&
+      element.value >= 0x30 &&
+      element.value <= 0x39
+    ) {
+      result += `\\x${element.value.toString(16).padStart(2, "0")}`;
+    } else {
+      result += emitNode(element, false, useVFlag);
+    }
   }
   return result;
 }

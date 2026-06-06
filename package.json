@@ -4,7 +4,6 @@
   "description": "Transpile Python regex patterns into ECMAScript RegExp objects",
   "private": false,
   "type": "module",
-  "packageManager": "pnpm@10.33.0+sha512.10568bb4a6afb58c9eb3630da90cc9516417abebd3fabbe6739f0ae795728da1491e9db5a544c76ad8eb7570f5c4bb3d6c637b2cb41bfdcdb47fa823c8649319",
   "main": "./dist/ecma-re.cjs",
   "module": "./dist/ecma-re.js",
   "types": "./dist/index.d.ts",
@@ -60,28 +59,28 @@
     "prebuild": "pnpm -s check && pnpm -s type-check && pnpm -s clear:dist",
     "build": "vite build",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "bench": "vitest bench --run",
+    "update:cpython-tests": "node scripts/update-cpython-tests.mjs",
     "prepublishOnly": "pnpm -s build"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.11",
-    "@changesets/cli": "^2.30.0",
-    "@commitlint/cli": "^20.5.0",
-    "@commitlint/config-conventional": "^20.5.0",
-    "@types/node": "^24.12.2",
-    "@vitest/ui": "4.1.4",
-    "lint-staged": "^16.4.0",
+    "@biomejs/biome": "^2.4.16",
+    "@changesets/cli": "^2.31.0",
+    "@commitlint/cli": "^21.0.2",
+    "@commitlint/config-conventional": "^21.0.2",
+    "@lezer/python": "^1.1.19",
+    "@types/node": "^25.9.2",
+    "@vitest/coverage-v8": "^4.1.8",
+    "@vitest/ui": "4.1.8",
+    "lint-staged": "^17.0.7",
     "rimraf": "^6.1.3",
     "simple-git-hooks": "^2.13.1",
-    "typescript": "^6.0.2",
-    "vite": "^8.0.8",
-    "vite-plugin-dts": "^4.5.4",
-    "vitest": "^4.1.4"
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16",
+    "vite-plugin-dts": "^5.0.2",
+    "vitest": "^4.1.8"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "simple-git-hooks"
-    ]
-  }
+  "packageManager": "pnpm@11.5.2+sha512.71c631e382066efc25625d5cf029075de07b61b37f6e27350fbd84b1bda5864c8c1967adc280776b45c30a715c0359a3be08fef42d5bb09e2b99029979692916"
 }

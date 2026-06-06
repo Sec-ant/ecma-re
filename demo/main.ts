@@ -17,7 +17,15 @@ const groupsDetails = document.getElementById(
 const groupsList = document.getElementById("groups-list") as HTMLDivElement;
 const examplesEl = document.getElementById("examples") as HTMLDivElement;
 const optAscii = document.getElementById("opt-ascii") as HTMLInputElement;
-const optLoose = document.getElementById("opt-loose") as HTMLInputElement;
+const optVariableLookbehind = document.getElementById(
+  "opt-variable-lookbehind",
+) as HTMLInputElement;
+const optAtomicApprox = document.getElementById(
+  "opt-atomic-approx",
+) as HTMLInputElement;
+const optPossessiveApprox = document.getElementById(
+  "opt-possessive-approx",
+) as HTMLInputElement;
 
 // --- Examples ---
 
@@ -27,7 +35,9 @@ interface Example {
   flags: string;
   test: string;
   ascii?: boolean;
-  loose?: boolean;
+  allowVariableLengthLookbehind?: boolean;
+  allowAtomicGroupApproximation?: boolean;
+  allowPossessiveQuantifierApproximation?: boolean;
 }
 
 const EXAMPLES: Example[] = [
@@ -101,11 +111,18 @@ const EXAMPLES: Example[] = [
     test: "aa? bb? cc!",
   },
   {
-    label: "Atomic (loose)",
+    label: "Atomic approximation",
     pattern: "(?>\\d+)\\.",
     flags: "",
     test: "123. 456. abc.",
-    loose: true,
+    allowAtomicGroupApproximation: true,
+  },
+  {
+    label: "JS variable lookbehind",
+    pattern: "(?<=ab|cde)f",
+    flags: "",
+    test: "abf cdef af",
+    allowVariableLengthLookbehind: true,
   },
 ];
 
@@ -123,7 +140,10 @@ function loadExample(ex: Example) {
   flagsEl.value = ex.flags;
   testStringEl.value = ex.test;
   optAscii.checked = ex.ascii ?? false;
-  optLoose.checked = ex.loose ?? false;
+  optVariableLookbehind.checked = ex.allowVariableLengthLookbehind ?? false;
+  optAtomicApprox.checked = ex.allowAtomicGroupApproximation ?? false;
+  optPossessiveApprox.checked =
+    ex.allowPossessiveQuantifierApproximation ?? false;
   update();
 }
 
@@ -148,7 +168,9 @@ function update() {
   try {
     currentRegex = ecmaRe(pattern, flags, {
       ascii: optAscii.checked,
-      loose: optLoose.checked,
+      allowVariableLengthLookbehind: optVariableLookbehind.checked,
+      allowAtomicGroupApproximation: optAtomicApprox.checked,
+      allowPossessiveQuantifierApproximation: optPossessiveApprox.checked,
     });
     outputEl.textContent = String(currentRegex);
   } catch (e: unknown) {

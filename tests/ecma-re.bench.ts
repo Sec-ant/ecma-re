@@ -9,17 +9,17 @@ const cases = {
   literal: {
     pattern: "hello",
     flags: "",
-    options: { ascii: false, loose: false },
+    options: { ascii: false },
   },
   asciiCharClass: {
     pattern: "^[a-zA-Z_][a-zA-Z0-9_]{0,31}$",
     flags: "",
-    options: { ascii: true, loose: false },
+    options: { ascii: true },
   },
   unicodeHeavy: {
     pattern: String.raw`^(?P<word>\w+)(?:\s+|,\s*)(?P=word)\b$`,
     flags: "",
-    options: { ascii: false, loose: false },
+    options: { ascii: false },
   },
   verbosePattern: {
     pattern: String.raw`(?x)
@@ -33,12 +33,12 @@ const cases = {
       $
     `,
     flags: "",
-    options: { ascii: false, loose: false },
+    options: { ascii: false },
   },
   nestedLookarounds: {
     pattern: String.raw`(?<!foo)(?P<name>[A-Za-z_]\w{0,15})(?=\s*=)(?:\s*=\s*)(?!0\d)\d+(?:\.\d+)?$`,
     flags: "",
-    options: { ascii: false, loose: false },
+    options: { ascii: false },
   },
 } as const;
 
