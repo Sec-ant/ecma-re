@@ -1,7 +1,7 @@
 {
   "name": "ecma-re",
   "version": "0.2.0",
-  "description": "Transpile Python regex patterns into ECMAScript RegExp objects",
+  "description": "Transpile Python regex patterns into ECMAScript RegExp literal strings",
   "private": false,
   "type": "module",
   "main": "./dist/ecma-re.cjs",

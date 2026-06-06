@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { EcmaReError, ecmaRe } from "../src/index";
+import { EcmaReError } from "../src/index";
+import { compileEcmaRe } from "./helpers";
+
+const ecmaRe = compileEcmaRe;
 
 describe("nested captures and backreferences", () => {
   it("matches deeply nested numbered backreferences", () => {

@@ -1,6 +1,6 @@
 # ecma-re
 
-Transpile Python `re` module regex patterns into ECMAScript `RegExp` objects.
+Transpile Python `re` module regex patterns into ECMAScript `RegExp` literal strings.
 
 ## Features
 
@@ -10,6 +10,7 @@ Transpile Python `re` module regex patterns into ECMAScript `RegExp` objects.
 - Python `a` flag support for ASCII regex semantics
 - Python-compatible by default, with explicit opt-ins for JS extensions and approximations
 - Targets ES2025 regex features (modifier groups, `v` flag)
+- Returns standard `RegExp.prototype.toString()`-style strings like `/source/flags`
 - Zero runtime dependencies
 - ESM and CJS dual output with full TypeScript declarations
 - Generated CPython compatibility tests plus focused API/stress tests
@@ -26,13 +27,12 @@ npm install ecma-re
 ```ts
 import { ecmaRe } from "ecma-re";
 
-// Basic usage — returns a native RegExp
-const re = ecmaRe("(?P<year>\\d{4})-(?P<month>\\d{2})-(?P<day>\\d{2})");
-const match = re.exec("2025-07-11");
-console.log(match?.groups); // { year: "2025", month: "07", day: "11" }
+// Basic usage — returns a RegExp literal string
+const literal = ecmaRe("(?P<year>\\d{4})-(?P<month>\\d{2})-(?P<day>\\d{2})");
+console.log(literal); // "/(?<year>\\p{Nd}{4})-(?<month>\\p{Nd}{2})-(?<day>\\p{Nd}{2})/v"
 
 // Python flags: case-insensitive + verbose
-const re2 = ecmaRe(
+const literal2 = ecmaRe(
   `
   \\b
   (?P<word>[a-z]+)   # capture a word
@@ -40,20 +40,20 @@ const re2 = ecmaRe(
 `,
   "ix",
 );
-console.log(re2.test("Hello")); // true
+console.log(literal2); // "/.../iv"
 
 // ASCII mode — use Python's a flag for re.ASCII semantics
-const re3 = ecmaRe("\\w+", "a");
+const literal3 = ecmaRe("\\w+", "a"); // "/\\w+/"
 
 // Explicit approximation — degrade instead of throwing for this feature
-const re4 = ecmaRe("a++", "", {
+const literal4 = ecmaRe("a++", "", {
   allowPossessiveQuantifierApproximation: true,
   onWarn: (msg) => console.warn(msg),
 });
-// Possessive quantifier degrades to greedy: /a+/
+// Possessive quantifier degrades to greedy: "/a+/v"
 
 // Explicit JS extension — allow variable-length lookbehind that Python rejects
-const re5 = ecmaRe("(?<=ab|cde)f", "", {
+const literal5 = ecmaRe("(?<=ab|cde)f", "", {
   allowVariableLengthLookbehind: true,
 });
 ```
@@ -63,7 +63,7 @@ const re5 = ecmaRe("(?<=ab|cde)f", "", {
 ### `ecmaRe(pattern, flags?, options?)`
 
 ```ts
-function ecmaRe(pattern: string, flags?: string, options?: EcmaReOptions): RegExp;
+function ecmaRe(pattern: string, flags?: string, options?: EcmaReOptions): string;
 ```
 
 **Parameters:**
@@ -74,13 +74,13 @@ function ecmaRe(pattern: string, flags?: string, options?: EcmaReOptions): RegEx
 | `flags`   | `string`      | Python-style flag characters: `"i"`, `"m"`, `"s"`, `"x"`, `"a"` |
 | `options` | `EcmaReOptions` | Transpilation options (see below)                               |
 
-**Returns:** A native `RegExp` object.
+**Returns:** A `RegExp.prototype.toString()`-style literal string, for example `"/(?<name>\\w+)/"`.
 
 **Throws:** `EcmaReError` on syntax errors or untranspilable features (in strict mode).
 
-`ecmaRe()` constructs a native JavaScript `RegExp` immediately. The generated
-pattern may use modern ECMAScript regex features, so callers should run this
-library only in runtimes that support the emitted feature set.
+`ecmaRe()` does not construct a native JavaScript `RegExp`. Callers decide
+whether to use the returned literal string for code generation, logging,
+snapshotting, transport, or runtime compilation.
 
 ### `EcmaReOptions`
 
@@ -172,8 +172,9 @@ Unknown escapes made from a backslash plus an ASCII letter, such as `\q`, throw
 
 ## Runtime Requirements
 
-ecma-re returns native JavaScript `RegExp` objects and therefore depends on the
-regex implementation in the current JS runtime.
+ecma-re returns a string and does not compile it with the current JavaScript
+runtime. The consumer is responsible for using the emitted literal only in
+runtimes that support the features present in that output.
 
 | Output feature                                | Used when                                           | Runtime requirement                     |
 | --------------------------------------------- | --------------------------------------------------- | --------------------------------------- |
@@ -183,8 +184,8 @@ regex implementation in the current JS runtime.
 | Lookbehind assertions                         | Python lookbehind or transformed anchors            | Runtime support for ES lookbehind       |
 
 If your target includes older Node, browser, Electron, edge-worker, Bun, or Deno
-versions, pin and test those runtimes explicitly. This package does not ship a
-regex engine; it emits patterns for the host engine.
+versions, pin and test those runtimes explicitly before compiling or evaluating
+the returned literal string. This package does not ship a regex engine.
 
 ## Production Guidance
 
@@ -193,8 +194,8 @@ compatibility tests for the pattern families you depend on. CPython-derived test
 and focused stress tests cover important behavior, but they cannot prove every
 application-specific pattern/input pair.
 
-Do not treat ecma-re as a ReDoS protection layer. Transpiling a pattern to native
-JavaScript `RegExp` does not remove catastrophic-backtracking risks. If patterns
+Do not treat ecma-re as a ReDoS protection layer. Transpiling a pattern to a
+JavaScript regex literal string does not remove catastrophic-backtracking risks. If patterns
 or inputs are untrusted, limit pattern length, nesting depth, input size, and
 execution time in the calling application.
 
@@ -204,7 +205,7 @@ ecma-re uses a three-stage compiler pipeline:
 
 1. **Parser** -- Recursive-descent, single-pass parser (no separate lexer) that produces a typed AST from the Python regex string. Verbose mode (`x` flag) preprocessing strips whitespace and comments before parsing.
 2. **Transformer** -- Rewrites AST nodes from Python semantics to ES semantics: resolves flags, rewrites named groups, expands Unicode shorthands, transforms anchors, and applies explicit approximation options.
-3. **Emitter** -- Serializes the transformed AST into an ES regex source string with the appropriate flags, then constructs a native `RegExp`.
+3. **Emitter** -- Serializes the transformed AST into an ES regex source string with the appropriate flags, then returns a slash-delimited literal string.
 
 ## License
 
