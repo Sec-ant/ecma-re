@@ -33,6 +33,29 @@ interface TransformContext {
   needsVFlag: boolean;
 }
 
+const ES_FLAG_I = 1;
+const ES_FLAG_M = 2;
+const ES_FLAG_S = 4;
+const ES_FLAG_V = 8;
+const ES_FLAGS_BY_MASK = [
+  "",
+  "i",
+  "m",
+  "im",
+  "s",
+  "is",
+  "ms",
+  "ims",
+  "v",
+  "iv",
+  "mv",
+  "imv",
+  "sv",
+  "isv",
+  "msv",
+  "imsv",
+] as const;
+
 export function transform(
   ast: Node,
   globalFlags: string,
@@ -47,18 +70,18 @@ export function transform(
   const allFlags = globalFlags + externalFlags;
 
   let ascii = false;
-  const esFlags = new Set<string>();
+  let esFlagMask = 0;
 
   for (const f of allFlags) {
     switch (f) {
       case "i":
-        esFlags.add("i");
+        esFlagMask |= ES_FLAG_I;
         break;
       case "m":
-        esFlags.add("m");
+        esFlagMask |= ES_FLAG_M;
         break;
       case "s":
-        esFlags.add("s");
+        esFlagMask |= ES_FLAG_S;
         break;
       case "x":
         /* already handled by parser */ break;
@@ -78,8 +101,8 @@ export function transform(
     allowAtomicGroupApproximation: options.allowAtomicGroupApproximation,
     allowPossessiveQuantifierApproximation:
       options.allowPossessiveQuantifierApproximation,
-    multiline: esFlags.has("m"),
-    dotAll: esFlags.has("s"),
+    multiline: (esFlagMask & ES_FLAG_M) !== 0,
+    dotAll: (esFlagMask & ES_FLAG_S) !== 0,
     onWarn: options.onWarn,
     needsVFlag: false,
   };
@@ -91,12 +114,12 @@ export function transform(
   const transformed = transformNode(ast, ctx);
 
   if (ctx.needsVFlag) {
-    esFlags.add("v");
+    esFlagMask |= ES_FLAG_V;
   }
 
   return {
     ast: transformed,
-    flags: Array.from(esFlags).join(""),
+    flags: ES_FLAGS_BY_MASK[esFlagMask]!,
     needsVFlag: ctx.needsVFlag,
   };
 }
