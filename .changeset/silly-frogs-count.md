@@ -1,5 +1,5 @@
 ---
-"ecma-re": major
+"ecma-re": minor
 ---
 
 Change `ecmaRe()` to return a `RegExp.prototype.toString()`-style literal string instead of constructing and returning a native `RegExp`.
