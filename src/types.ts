@@ -160,8 +160,3 @@ export interface EcmaReOptions {
   /** Warning callback invoked when a feature is approximated. */
   onWarn?: (msg: string) => void;
 }
-
-export interface TranspileResult {
-  source: string;
-  flags: string;
-}

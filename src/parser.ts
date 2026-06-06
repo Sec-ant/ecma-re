@@ -45,6 +45,10 @@ function isDigit(ch: string): boolean {
   return ch >= "0" && ch <= "9";
 }
 
+function isAsciiLetter(ch: string): boolean {
+  return (ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z");
+}
+
 function isHexDigit(ch: string): boolean {
   return (
     (ch >= "0" && ch <= "9") ||
@@ -536,6 +540,7 @@ class Parser {
   }
 
   private parseCharClassEscape(): CharClassMember {
+    const escStart = this.pos;
     this.advance(); // skip \
     if (this.atEnd()) throw new EcmaReError("Trailing backslash", this.pos);
 
@@ -618,7 +623,10 @@ class Parser {
           const val = this.parseOctalSequence(ch);
           return { type: "literal", value: val } satisfies CharClassLiteral;
         }
-        // Unknown escape inside char class - treat as literal of the char
+        if (isAsciiLetter(ch)) {
+          throw new EcmaReError(`bad escape \\${ch}`, escStart);
+        }
+        // Unknown non-letter escape inside char class - treat as literal.
         return {
           type: "literal",
           value: ch.codePointAt(0) as number,
@@ -740,7 +748,10 @@ class Parser {
         if (ch >= "1" && ch <= "9") {
           return this.parseNumericEscape(ch, escStart);
         }
-        // Unknown escape - in Python 3.6+ this is deprecated, but we'll pass it through as literal
+        if (isAsciiLetter(ch)) {
+          throw new EcmaReError(`bad escape \\${ch}`, escStart);
+        }
+        // Unknown non-letter escape - treat as a literal, matching Python.
         return {
           type: "literal",
           value: ch.codePointAt(0) as number,
