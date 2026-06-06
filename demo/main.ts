@@ -306,8 +306,9 @@ function escapeHtml(s: string): string {
 patternEl.addEventListener("input", update);
 flagsEl.addEventListener("input", update);
 testStringEl.addEventListener("input", updateMatches);
-optAscii.addEventListener("change", update);
-optLoose.addEventListener("change", update);
+optVariableLookbehind.addEventListener("change", update);
+optAtomicApprox.addEventListener("change", update);
+optPossessiveApprox.addEventListener("change", update);
 
 // --- Init ---
 
