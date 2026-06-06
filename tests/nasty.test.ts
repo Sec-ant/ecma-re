@@ -275,6 +275,16 @@ describe("syntax edge cases", () => {
     expect(re.test("A!\b\n\r\t\f\v\u0007\\-&")).toBe(true);
   });
 
+  it("rejects unknown ASCII-letter escapes like Python", () => {
+    expect(() => ecmaRe("\\q")).toThrow(EcmaReError);
+    expect(() => ecmaRe("[\\q]")).toThrow(EcmaReError);
+  });
+
+  it("keeps unknown non-letter escapes as literals like Python", () => {
+    expect(ecmaRe("^\\&$", "a").test("&")).toBe(true);
+    expect(ecmaRe("^[\\&]$", "a").test("&")).toBe(true);
+  });
+
   it("rejects character-class ranges whose endpoint is not a literal", () => {
     expect(() => ecmaRe("[a-\\d]", "a")).toThrow(EcmaReError);
     expect(() => ecmaRe("[\\d-a]", "a")).toThrow(EcmaReError);

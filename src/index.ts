@@ -1,5 +1,5 @@
 export { EcmaReError } from "./errors";
-export type { EcmaReOptions, Node, TranspileResult } from "./types";
+export type { EcmaReOptions, Node } from "./types";
 
 import { emit } from "./emitter";
 import { EcmaReError } from "./errors";

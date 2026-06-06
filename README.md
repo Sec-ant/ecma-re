@@ -78,6 +78,10 @@ function ecmaRe(pattern: string, flags?: string, options?: EcmaReOptions): RegEx
 
 **Throws:** `EcmaReError` on syntax errors or untranspilable features (in strict mode).
 
+`ecmaRe()` constructs a native JavaScript `RegExp` immediately. The generated
+pattern may use modern ECMAScript regex features, so callers should run this
+library only in runtimes that support the emitted feature set.
+
 ### `EcmaReOptions`
 
 ```ts
@@ -161,6 +165,38 @@ When Python ASCII mode is not active, the output uses the `v` flag and Unicode p
 | `(?>...)` atomic group                  | Throws `EcmaReError` | Approximates with `allowAtomicGroupApproximation`         |
 | `(?(id)yes\|no)` conditional            | Throws `EcmaReError` | No opt-in: no safe ECMAScript representation              |
 | `(?L)` locale flag                      | Throws `EcmaReError` | No opt-in: locale regex semantics are not supported       |
+
+Unknown escapes made from a backslash plus an ASCII letter, such as `\q`, throw
+`EcmaReError`, matching Python `re` behavior. Unknown non-letter escapes, such as
+`\&`, are treated as escaped literals.
+
+## Runtime Requirements
+
+ecma-re returns native JavaScript `RegExp` objects and therefore depends on the
+regex implementation in the current JS runtime.
+
+| Output feature                                | Used when                                           | Runtime requirement                     |
+| --------------------------------------------- | --------------------------------------------------- | --------------------------------------- |
+| Unicode Sets `v` flag                         | Default Unicode mode, Unicode shorthands/boundaries | Modern Node/browser support for `v`     |
+| Unicode property escapes `\p{...}`/`\P{...}`  | Default Unicode mode                                | Modern Unicode-aware RegExp support     |
+| RegExp modifier groups like `(?i:...)`        | Scoped inline flags                                 | Modern support for regex modifier groups |
+| Lookbehind assertions                         | Python lookbehind or transformed anchors            | Runtime support for ES lookbehind       |
+
+If your target includes older Node, browser, Electron, edge-worker, Bun, or Deno
+versions, pin and test those runtimes explicitly. This package does not ship a
+regex engine; it emits patterns for the host engine.
+
+## Production Guidance
+
+For production use, pin the package version and run your own Python-vs-JavaScript
+compatibility tests for the pattern families you depend on. CPython-derived tests
+and focused stress tests cover important behavior, but they cannot prove every
+application-specific pattern/input pair.
+
+Do not treat ecma-re as a ReDoS protection layer. Transpiling a pattern to native
+JavaScript `RegExp` does not remove catastrophic-backtracking risks. If patterns
+or inputs are untrusted, limit pattern length, nesting depth, input size, and
+execution time in the calling application.
 
 ## How It Works
 
