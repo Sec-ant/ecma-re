@@ -27,6 +27,9 @@ importers:
       '@types/node':
         specifier: ^25.9.2
         version: 25.9.2
+      '@unicode/unicode-16.0.0':
+        specifier: ^1.6.16
+        version: 1.6.16
       '@vitest/coverage-v8':
         specifier: ^4.1.8
         version: 4.1.8(vitest@4.1.8)
@@ -833,6 +836,9 @@ packages:
 
   '@types/node@25.9.2':
     resolution: {integrity: sha512-G05zqtJhcDLb8uslf5EjCxXg9G1KQxiV8OS0R26IC//Eoyitzqe8z37I7cqvnZlrlSfgocQRfSn/AHBZJJFyGw==}
+
+  '@unicode/unicode-16.0.0@1.6.16':
+    resolution: {integrity: sha512-R2Vxi0XEsCMD9WOQT85O2npa7g+i4RsJ8Xtn+/KODLqa5wH5zCTn5an6JILJhMSfFGD3t3amES2XnvUHnKjMZQ==}
 
   '@vitest/coverage-v8@4.1.8':
     resolution: {integrity: sha512-lt3kovsyHwYe00wq4D1ti0Z974fWj4NLp6siqiyEufUpyFwK9Yhi7rBhac9JL5aA0zoMrJqc4vYPZRUnI7l7nw==}
@@ -2752,6 +2758,8 @@ snapshots:
   '@types/node@25.9.2':
     dependencies:
       undici-types: 7.24.6
+
+  '@unicode/unicode-16.0.0@1.6.16': {}
 
   '@vitest/coverage-v8@4.1.8(vitest@4.1.8)':
     dependencies:

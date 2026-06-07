@@ -13,7 +13,7 @@ Transpile Python `re` module regex patterns into ECMAScript `RegExp` literal str
 - Returns standard `RegExp.prototype.toString()`-style strings like `/source/flags`
 - Zero runtime dependencies
 - ESM and CJS dual output with full TypeScript declarations
-- Generated CPython compatibility tests plus focused API/stress tests
+- Generated CPython compatibility tests plus focused API/pattern compatibility tests
 - Coverage reporting via `pnpm test:coverage`
 
 ## Installation
@@ -71,7 +71,7 @@ function ecmaRe(pattern: string, flags?: string, options?: EcmaReOptions): strin
 | Parameter | Type          | Description                                                     |
 | --------- | ------------- | --------------------------------------------------------------- |
 | `pattern` | `string`      | Python regex pattern                                            |
-| `flags`   | `string`      | Python-style flag characters: `"i"`, `"m"`, `"s"`, `"x"`, `"a"` |
+| `flags`   | `string`      | Python-style flag characters: `"i"`, `"m"`, `"s"`, `"x"`, `"a"`, `"u"`, `"L"` |
 | `options` | `EcmaReOptions` | Transpilation options (see below)                               |
 
 **Returns:** A `RegExp.prototype.toString()`-style literal string, for example `"/(?<name>\\w+)/"`.
@@ -114,19 +114,21 @@ Thrown on parse errors and untranspilable features. The `position` field indicat
 
 | Flag | Meaning                                    | Handling                               |
 | ---- | ------------------------------------------ | -------------------------------------- |
-| `i`  | Case-insensitive                           | Mapped to ES `i` flag                  |
-| `m`  | Multiline (`^`/`$` match line boundaries)  | Mapped to ES `m` flag                  |
+| `i`  | Case-insensitive                           | Uses ES `i` in Unicode mode; expands ASCII case pairs in ASCII mode |
+| `m`  | Multiline (`^`/`$` match line boundaries)  | Rewrites anchors to Python newline boundaries and emits ES `m` |
 | `s`  | Dot matches newline                        | Mapped to ES `s` flag                  |
 | `x`  | Verbose mode (whitespace/comments ignored) | Preprocessed before parsing            |
-| `a`  | ASCII mode                                 | Enables Python `re.ASCII` semantics for `\w`, `\d`, `\s`, `\b` |
+| `a`  | ASCII mode                                 | Enables Python `re.ASCII` semantics for `\w`, `\d`, `\s`, `\b`, and `i` |
+| `u`  | Unicode mode                               | Accepted as Python's default Unicode mode |
+| `L`  | Locale mode                                | Recognized and rejected because locale regex semantics are unsupported |
 
-Inline flags `(?aimsux)` at the start of a pattern are also supported. Scoped modifier groups like `(?i-m:...)`, `(?a:...)`, and `(?u:...)` are supported.
+Inline flags `(?aimsux)` at the start of a pattern are also supported. Scoped modifier groups like `(?i-m:...)`, `(?a:...)`, and `(?u:...)` are supported with Python flag semantics.
 
 ## Feature Support
 
 ### Direct passthrough (no transform needed)
 
-`.`, `^`, `$`, `*`, `+`, `?`, `{m,n}`, lazy quantifiers (`*?`, `+?`, etc.), character classes `[...]` / `[^...]`, alternation `|`, capturing/non-capturing groups, numeric backreferences `\1`..`\99`, all four lookaround assertions, and standard escapes (`\t`, `\n`, `\r`, `\f`, `\v`, `\xhh`).
+`*`, `+`, `?`, `{m,n}`, lazy quantifiers (`*?`, `+?`, etc.), character classes `[...]` / `[^...]`, alternation `|`, capturing/non-capturing groups, numeric backreferences `\1`..`\99`, all four lookaround assertions, and standard escapes (`\t`, `\n`, `\r`, `\f`, `\v`, `\xhh`).
 
 ### Syntactic transforms
 
@@ -137,12 +139,16 @@ Inline flags `(?aimsux)` at the start of a pattern are also supported. Scoped mo
 | `(?#...)`           | _(removed)_               | Comment group                                    |
 | `(?x)` verbose      | Strip whitespace/comments | Preprocessed before parsing                      |
 | `(?ims)` global     | Extracted to ES flags     | Only at pattern start                            |
-| `(?i-m:...)` scoped | `(?i-m:...)`              | ES2025 modifier group passthrough                |
+| `(?i-m:...)` scoped | Scoped ES modifier group or transformed body | Python scoped flag semantics                     |
 | `\A`                | `(?<![\s\S])`             | Start-of-string anchor                           |
 | `\Z`, `\z`          | `(?![\s\S])`              | End-of-string anchor                             |
+| `.` (non-DOTALL)    | `[^\n]`                   | Python dot excludes only LF                      |
 | `$` (non-multiline) | `(?=\n?$)`                | Python `$` matches before optional trailing `\n` |
+| `^` / `$` (multiline) | Lookaround assertions around `\n` | Python multiline anchors only use LF boundaries |
 | `\a`                | `\x07`                    | Bell character                                   |
 | `\0`, `\141` octal  | `\x00`, `\x61`            | Normalized to hex escapes                        |
+| `\u1234`, `\U0001F600` | Escaped literal code point | Validates Python Unicode escape ranges           |
+| `\N{name}`          | Escaped literal code point | Uses build-injected Unicode 16.0 names/aliases; named sequences are rejected like CPython `re` |
 
 ### Unicode mode (default)
 
@@ -152,7 +158,7 @@ When Python ASCII mode is not active, the output uses the `v` flag and Unicode p
 | ----------- | ------------------------------------------------- |
 | `\w` / `\W` | `[\p{L}\p{N}_]` / `[^\p{L}\p{N}_]`                |
 | `\d` / `\D` | `\p{Nd}` / `\P{Nd}`                               |
-| `\s` / `\S` | `\p{White_Space}` / `\P{White_Space}`             |
+| `\s` / `\S` | `[\p{White_Space}\x1c-\x1f]` / its negation       |
 | `\b` / `\B` | Lookaround-based Unicode word boundary assertions |
 
 ### Python compatibility escapes

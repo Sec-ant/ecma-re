@@ -19,6 +19,7 @@ import type {
   SequenceNode,
   ShorthandNode,
 } from "./types";
+import { lookupNamedCodePoint } from "./unicode-names";
 
 export interface ParseResult {
   ast: Node;
@@ -77,7 +78,43 @@ function isInlineFlagChar(ch: string): boolean {
 }
 
 function isValidGroupName(name: string): boolean {
-  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(name);
+  return /^(?:_|\p{XID_Start})(?:_|\p{XID_Continue})*$/u.test(name);
+}
+
+function uniqueFlags(flags: string): string {
+  let unique = "";
+  for (const flag of flags) {
+    if (!unique.includes(flag)) unique += flag;
+  }
+  return unique;
+}
+
+function validateInlineFlags(
+  flags: string,
+  negFlags: string,
+  pos: number,
+): { flags: string; negFlags: string } {
+  const uniquePositive = uniqueFlags(flags);
+  const uniqueNegative = uniqueFlags(negFlags);
+  let modeFlagCount = 0;
+
+  for (const flag of "aLu") {
+    if (uniquePositive.includes(flag)) modeFlagCount++;
+    if (uniqueNegative.includes(flag)) {
+      throw new EcmaReError("Cannot turn off flags 'a', 'u' and 'L'", pos);
+    }
+  }
+  if (modeFlagCount > 1) {
+    throw new EcmaReError("Flags 'a', 'u' and 'L' are incompatible", pos);
+  }
+
+  for (const flag of uniquePositive) {
+    if (uniqueNegative.includes(flag)) {
+      throw new EcmaReError("Flag turned on and off", pos);
+    }
+  }
+
+  return { flags: uniquePositive, negFlags: uniqueNegative };
 }
 
 interface Width {
@@ -110,8 +147,7 @@ export function parse(
   verboseMode = false,
   options?: { allowVariableLengthLookbehind?: boolean },
 ): ParseResult {
-  // If verbose mode, preprocess the pattern first
-  const input = verboseMode ? preprocessVerbose(pattern) : pattern;
+  const input = preprocessVerbose(pattern, verboseMode);
   const parser = new Parser(
     input,
     options?.allowVariableLengthLookbehind ?? false,
@@ -127,16 +163,28 @@ export function parse(
 
 /**
  * Preprocess verbose mode pattern: strip unescaped whitespace and # comments
- * outside character classes.
+ * outside character classes, respecting scoped (?x:...) / (?-x:...) groups.
  */
-export function preprocessVerbose(pattern: string): string {
+export function preprocessVerbose(
+  pattern: string,
+  initialVerbose = true,
+): string {
   const parts: string[] = [];
   let i = 0;
+  let verbose = initialVerbose;
+  const verboseStack: boolean[] = [];
+
   while (i < pattern.length) {
     const ch = pattern.charAt(i);
 
     // Escaped character: keep as-is
     if (ch === "\\" && i + 1 < pattern.length) {
+      const namedUnicodeEscape = readNamedUnicodeEscapeText(pattern, i);
+      if (namedUnicodeEscape) {
+        parts.push(namedUnicodeEscape.text);
+        i = namedUnicodeEscape.next;
+        continue;
+      }
       parts.push(pattern.slice(i, i + 2));
       i += 2;
       continue;
@@ -168,25 +216,54 @@ export function preprocessVerbose(pattern: string): string {
       continue;
     }
 
-    // Unescaped # starts a comment until end of line
-    // BUT: if preceded by (?, this is a (?#...) inline comment — consume until )
-    if (ch === "#") {
-      const pLen = parts.length;
-      if (pLen >= 2 && parts[pLen - 2] === "(" && parts[pLen - 1] === "?") {
-        // (?#...) inline comment: remove the ( and ? we already pushed,
-        // then consume everything until the closing )
-        parts.pop(); // remove ?
-        parts.pop(); // remove (
-        i++; // skip the #
-        while (i < pattern.length && pattern.charAt(i) !== ")") {
-          i++;
+    if (ch === "(" && pattern.charAt(i + 1) === "?") {
+      const group = readSpecialGroupPrefix(pattern, i, verbose);
+      if (group) {
+        parts.push(group.text);
+        i = group.next;
+        if (group.kind === "scoped") {
+          verboseStack.push(verbose);
+          verbose = group.verbose;
+        } else if (group.kind === "global") {
+          verbose = group.verbose;
         }
-        if (i >= pattern.length) {
-          throw new EcmaReError("Unterminated comment group", i);
-        }
-        i++; // skip the closing )
         continue;
       }
+    }
+
+    if (ch === "(") {
+      verboseStack.push(verbose);
+      parts.push(ch);
+      i++;
+      continue;
+    }
+
+    if (ch === ")") {
+      parts.push(ch);
+      if (verboseStack.length > 0) {
+        verbose = verboseStack.pop()!;
+      }
+      i++;
+      continue;
+    }
+
+    if (!verbose) {
+      parts.push(ch);
+      i++;
+      continue;
+    }
+
+    if (ch === "{") {
+      const brace = readVerboseBraceLiteral(pattern, i);
+      if (brace) {
+        parts.push(brace.text);
+        i = brace.next;
+        continue;
+      }
+    }
+
+    // Unescaped # starts a comment until end of line
+    if (ch === "#") {
       while (i < pattern.length && pattern.charAt(i) !== "\n") {
         i++;
       }
@@ -197,6 +274,9 @@ export function preprocessVerbose(pattern: string): string {
 
     // Unescaped whitespace: skip
     if (isWhitespace(ch)) {
+      if (isQuantifierSuffixGap(parts, pattern, i)) {
+        throw new EcmaReError("Multiple repeat", i);
+      }
       i++;
       continue;
     }
@@ -206,6 +286,243 @@ export function preprocessVerbose(pattern: string): string {
   }
 
   return parts.join("");
+}
+
+function lastOutputChar(parts: string[]): string {
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const part = parts[i]!;
+    if (part.length > 0) return part.charAt(part.length - 1);
+  }
+  return "";
+}
+
+function nextNonWhitespace(pattern: string, start: number): string {
+  let i = start;
+  while (i < pattern.length && isWhitespace(pattern.charAt(i))) {
+    i++;
+  }
+  return pattern.charAt(i);
+}
+
+function isQuantifierSuffixGap(
+  parts: string[],
+  pattern: string,
+  whitespaceStart: number,
+): boolean {
+  const previous = lastOutputChar(parts);
+  if (
+    previous !== "*" &&
+    previous !== "+" &&
+    previous !== "?" &&
+    previous !== "}"
+  ) {
+    return false;
+  }
+  const next = nextNonWhitespace(pattern, whitespaceStart);
+  return next === "?" || next === "+";
+}
+
+function readVerboseBraceLiteral(
+  pattern: string,
+  start: number,
+): { text: string; next: number } | null {
+  const end = readUntil(pattern, start + 1, "}");
+  if (end >= pattern.length) return null;
+
+  const rawBody = pattern.slice(start + 1, end);
+  if (!/[ \t\n\r\f\v]/.test(rawBody)) return null;
+
+  const strippedBody = rawBody.replace(/[ \t\n\r\f\v]+/g, "");
+  if (!/^(?:\d+|\d*,\d*)$/.test(strippedBody)) return null;
+
+  return {
+    text: `\\{${strippedBody}\\}`,
+    next: end + 1,
+  };
+}
+
+function readNamedUnicodeEscapeText(
+  pattern: string,
+  start: number,
+): { text: string; next: number } | null {
+  if (
+    pattern.charAt(start) !== "\\" ||
+    pattern.charAt(start + 1) !== "N" ||
+    pattern.charAt(start + 2) !== "{"
+  ) {
+    return null;
+  }
+
+  let end = start + 3;
+  while (end < pattern.length && pattern.charAt(end) !== "}") {
+    end++;
+  }
+  return {
+    text: pattern.slice(start, end < pattern.length ? end + 1 : end),
+    next: end < pattern.length ? end + 1 : end,
+  };
+}
+
+type SpecialGroupPrefix =
+  | { kind: "scoped"; text: string; next: number; verbose: boolean }
+  | { kind: "global"; text: string; next: number; verbose: boolean }
+  | { kind: "plain"; text: string; next: number };
+
+function readUntil(pattern: string, start: number, end: string): number {
+  let i = start;
+  while (i < pattern.length && pattern.charAt(i) !== end) {
+    if (pattern.charAt(i) === "\\" && i + 1 < pattern.length) {
+      i += 2;
+    } else {
+      i++;
+    }
+  }
+  return i;
+}
+
+function readInvalidSpecialGroup(
+  pattern: string,
+  start: number,
+): SpecialGroupPrefix {
+  const end = readUntil(pattern, start, ")");
+  return {
+    kind: "plain",
+    text: pattern.slice(start, end < pattern.length ? end + 1 : end),
+    next: end < pattern.length ? end + 1 : end,
+  };
+}
+
+function applyVerboseFlags(
+  current: boolean,
+  flags: string,
+  negFlags = "",
+): boolean {
+  if (flags.includes("x")) return true;
+  if (negFlags.includes("x")) return false;
+  return current;
+}
+
+function readSpecialGroupPrefix(
+  pattern: string,
+  start: number,
+  currentVerbose: boolean,
+): SpecialGroupPrefix | null {
+  const specifier = pattern.charAt(start + 2);
+
+  switch (specifier) {
+    case ":":
+    case "=":
+    case "!":
+    case ">":
+      return {
+        kind: "scoped",
+        text: pattern.slice(start, start + 3),
+        next: start + 3,
+        verbose: currentVerbose,
+      };
+    case "<": {
+      const lookbehindKind = pattern.charAt(start + 3);
+      if (lookbehindKind === "=" || lookbehindKind === "!") {
+        return {
+          kind: "scoped",
+          text: pattern.slice(start, start + 4),
+          next: start + 4,
+          verbose: currentVerbose,
+        };
+      }
+      return readInvalidSpecialGroup(pattern, start);
+    }
+    case "#": {
+      const end = readUntil(pattern, start + 3, ")");
+      return {
+        kind: "plain",
+        text: pattern.slice(start, end < pattern.length ? end + 1 : end),
+        next: end < pattern.length ? end + 1 : end,
+      };
+    }
+    case "(": {
+      const conditionEnd = readUntil(pattern, start + 3, ")");
+      if (conditionEnd >= pattern.length) {
+        return readInvalidSpecialGroup(pattern, start);
+      }
+      return {
+        kind: "scoped",
+        text: pattern.slice(start, conditionEnd + 1),
+        next: conditionEnd + 1,
+        verbose: currentVerbose,
+      };
+    }
+    case "P": {
+      const nameKind = pattern.charAt(start + 3);
+      if (nameKind === "<") {
+        const nameEnd = readUntil(pattern, start + 4, ">");
+        if (nameEnd >= pattern.length) {
+          return readInvalidSpecialGroup(pattern, start);
+        }
+        return {
+          kind: "scoped",
+          text: pattern.slice(start, nameEnd + 1),
+          next: nameEnd + 1,
+          verbose: currentVerbose,
+        };
+      }
+      if (nameKind === "=") {
+        const refEnd = readUntil(pattern, start + 4, ")");
+        return {
+          kind: "plain",
+          text: pattern.slice(
+            start,
+            refEnd < pattern.length ? refEnd + 1 : refEnd,
+          ),
+          next: refEnd < pattern.length ? refEnd + 1 : refEnd,
+        };
+      }
+      return readInvalidSpecialGroup(pattern, start);
+    }
+    default: {
+      if (!isInlineFlagChar(specifier)) {
+        return readInvalidSpecialGroup(pattern, start);
+      }
+
+      let cursor = start + 2;
+      let flags = "";
+      let negFlags = "";
+      let inNeg = false;
+      while (
+        cursor < pattern.length &&
+        isInlineFlagChar(pattern.charAt(cursor))
+      ) {
+        const flag = pattern.charAt(cursor);
+        if (flag === "-") {
+          inNeg = true;
+        } else if (inNeg) {
+          negFlags += flag;
+        } else {
+          flags += flag;
+        }
+        cursor++;
+      }
+
+      const end = pattern.charAt(cursor);
+      if (end === ":") {
+        return {
+          kind: "scoped",
+          text: pattern.slice(start, cursor + 1),
+          next: cursor + 1,
+          verbose: applyVerboseFlags(currentVerbose, flags, negFlags),
+        };
+      }
+      if (end === ")") {
+        return {
+          kind: "global",
+          text: pattern.slice(start, cursor + 1),
+          next: cursor + 1,
+          verbose: applyVerboseFlags(currentVerbose, flags),
+        };
+      }
+      return readInvalidSpecialGroup(pattern, start);
+    }
+  }
 }
 
 class Parser {
@@ -281,7 +598,7 @@ class Parser {
       }
       if (flags.length > 0 && this.input.charAt(this.pos + j) === ")") {
         // This is a global flag group (?flags)
-        this.globalFlags = flags;
+        this.globalFlags = validateInlineFlags(flags, "", saved).flags;
         this.pos += j + 1;
         return;
       }
@@ -383,13 +700,13 @@ class Parser {
     while (!this.atEnd() && isDigit(this.ch)) {
       minStr += this.advance();
     }
-    if (minStr.length === 0) {
+    if (minStr.length === 0 && this.ch !== ",") {
       // Not a valid quantifier, treat { as literal
       this.pos = saved;
       return null;
     }
 
-    const min = Number.parseInt(minStr, 10);
+    const min = minStr.length > 0 ? Number.parseInt(minStr, 10) : 0;
     let max = min;
 
     if (this.ch === ",") {
@@ -410,6 +727,10 @@ class Parser {
       return null;
     }
     this.advance(); // skip }
+
+    if (max !== Number.POSITIVE_INFINITY && min > max) {
+      throw new EcmaReError("Min repeat greater than max repeat", saved);
+    }
 
     return { min, max };
   }
@@ -612,6 +933,14 @@ class Parser {
         const hex = this.parseHexEscape(4);
         return { type: "literal", value: hex } satisfies CharClassLiteral;
       }
+      case "U": {
+        const hex = this.parseCodePointEscape(8, escStart);
+        return { type: "literal", value: hex } satisfies CharClassLiteral;
+      }
+      case "N": {
+        const value = this.parseNamedUnicodeEscape(escStart);
+        return { type: "literal", value } satisfies CharClassLiteral;
+      }
       case "0": {
         // Octal or null
         const val = this.parseOctalAfterZero();
@@ -735,8 +1064,14 @@ class Parser {
         const hex = this.parseHexEscape(4);
         return { type: "literal", value: hex } satisfies LiteralNode;
       }
-      case "N":
-        throw new EcmaReError("\\N{name} escapes are not supported", escStart);
+      case "U": {
+        const hex = this.parseCodePointEscape(8, escStart);
+        return { type: "literal", value: hex } satisfies LiteralNode;
+      }
+      case "N": {
+        const value = this.parseNamedUnicodeEscape(escStart);
+        return { type: "literal", value } satisfies LiteralNode;
+      }
 
       case "0": {
         const val = this.parseOctalAfterZero();
@@ -772,6 +1107,37 @@ class Parser {
       hex += this.advance();
     }
     return Number.parseInt(hex, 16);
+  }
+
+  private parseCodePointEscape(digits: number, escStart: number): number {
+    const value = this.parseHexEscape(digits);
+    if (value > 0x10ffff) {
+      throw new EcmaReError("Unicode escape outside valid range", escStart);
+    }
+    return value;
+  }
+
+  private parseNamedUnicodeEscape(escStart: number): number {
+    if (this.currentChar() !== "{") {
+      throw new EcmaReError("Missing { for named Unicode escape", escStart);
+    }
+    this.advance();
+
+    const nameStart = this.pos;
+    while (!this.atEnd() && this.currentChar() !== "}") {
+      this.advance();
+    }
+    if (this.atEnd()) {
+      throw new EcmaReError("Missing } for named Unicode escape", escStart);
+    }
+
+    const name = this.input.slice(nameStart, this.pos);
+    this.advance();
+    const value = lookupNamedCodePoint(name);
+    if (value === undefined) {
+      throw new EcmaReError(`Undefined character name '${name}'`, escStart);
+    }
+    return value;
   }
 
   private parseOctalAfterZero(): number {
@@ -1078,14 +1444,19 @@ class Parser {
             }
             if (this.currentChar() === ":") {
               // Scoped modifier group (?flags:...)
+              const normalized = validateInlineFlags(
+                flags,
+                negFlags,
+                groupStart,
+              );
               this.advance();
               const body = this.parseAlternation();
               this.expect(")");
               return {
                 type: "group",
                 kind: "modifier",
-                flags,
-                negFlags,
+                flags: normalized.flags,
+                negFlags: normalized.negFlags,
                 body,
               } satisfies GroupNode;
             }

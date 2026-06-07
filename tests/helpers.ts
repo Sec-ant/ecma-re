@@ -1,4 +1,4 @@
-import { ecmaRe as ecmaReLiteral } from "../src/index";
+import { ecmaRe } from "../src/index";
 import type { EcmaReOptions } from "../src/types";
 
 export function regexpFromLiteral(literal: string): RegExp {
@@ -14,5 +14,5 @@ export function compileEcmaRe(
   flags?: string,
   options?: EcmaReOptions,
 ): RegExp {
-  return regexpFromLiteral(ecmaReLiteral(pattern, flags, options));
+  return regexpFromLiteral(ecmaRe(pattern, flags, options));
 }

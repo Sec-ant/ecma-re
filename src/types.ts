@@ -39,12 +39,18 @@ export interface CharClassUnicodeProperty {
   negated: boolean;
 }
 
+export interface CharClassNestedClass {
+  type: "nestedClass";
+  node: CharClassNode;
+}
+
 export type CharClassMember =
   | CharClassLiteral
   | CharClassRange
   | CharClassShorthand
   | CharClassBackspace
-  | CharClassUnicodeProperty;
+  | CharClassUnicodeProperty
+  | CharClassNestedClass;
 
 export interface CharClassNode {
   type: "charClass";

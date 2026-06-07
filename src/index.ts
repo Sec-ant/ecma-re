@@ -2,6 +2,7 @@ export { EcmaReError } from "./errors";
 export type { EcmaReOptions, Node } from "./types";
 
 import { emit } from "./emitter";
+import { EcmaReError } from "./errors";
 import { hasLeadingGlobalVerboseFlag, parse } from "./parser";
 import { transform } from "./transformer";
 import type { EcmaReOptions } from "./types";
@@ -72,11 +73,28 @@ function escapeLiteralSourceFrom(
   return output;
 }
 
+function validateExternalFlags(flags: string): void {
+  for (let index = 0; index < flags.length; index += 1) {
+    const flag = flags.charAt(index);
+    if (
+      flag !== "a" &&
+      flag !== "i" &&
+      flag !== "L" &&
+      flag !== "m" &&
+      flag !== "s" &&
+      flag !== "u" &&
+      flag !== "x"
+    ) {
+      throw new EcmaReError(`Invalid flag '${flag}'`, index);
+    }
+  }
+}
+
 /**
  * Transpile a Python regex pattern into an ECMAScript RegExp literal string.
  *
  * @param pattern - Python regex pattern string
- * @param flags - Python-style flag characters: "i", "m", "s", "x", "a"
+ * @param flags - Python-style flag characters: "i", "m", "s", "x", "a", "u", "L"
  * @param options - Transpilation options
  * @returns An ECMAScript RegExp literal string like "/source/flags"
  */
@@ -86,6 +104,7 @@ export function ecmaRe(
   options?: EcmaReOptions,
 ): string {
   const externalFlags = flags ?? "";
+  validateExternalFlags(externalFlags);
 
   // Determine if verbose mode is active
   const verboseMode =
