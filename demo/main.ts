@@ -14,6 +14,7 @@ const patternEl = document.getElementById("pattern") as HTMLTextAreaElement;
 const flagsEl = document.getElementById("flags") as HTMLInputElement;
 const outputEl = document.getElementById("output") as HTMLDivElement;
 const errorEl = document.getElementById("error") as HTMLDivElement;
+const warningsEl = document.getElementById("warnings") as HTMLDivElement;
 const testStringEl = document.getElementById(
   "test-string",
 ) as HTMLTextAreaElement;
@@ -48,22 +49,52 @@ interface Example {
 
 const EXAMPLES: Example[] = [
   {
-    label: "Named groups",
+    label: "Named backrefs",
     pattern: "(?P<word>\\w+)\\s+(?P=word)",
     flags: "",
     test: "hello hello world world",
   },
   {
-    label: "Unicode \\w",
-    pattern: "\\w+",
+    label: "Unicode shorthands",
+    pattern: "\\w+\\s+\\d+",
     flags: "",
-    test: "hello café 你好 مرحبا 42",
+    test: "東京 १२३\ncafe 123\nabc xyz",
   },
   {
-    label: "\\A \\Z anchors",
-    pattern: "\\A\\w+",
+    label: "Named Unicode",
+    pattern: "\\N{LATIN SMALL LETTER A}\\N{EM DASH}\\N{HANGUL SYLLABLE GA}",
+    flags: "a",
+    test: "a—가 a-ga A—가",
+  },
+  {
+    label: "\\U escapes",
+    pattern: "\\U0001F600[\\U0001F601]",
+    flags: "a",
+    test: "😀😁 😀a",
+  },
+  {
+    label: "Unicode IGNORECASE",
+    pattern: "[a-z]+",
+    flags: "i",
+    test: "abc ABC İıſK é",
+  },
+  {
+    label: "ASCII IGNORECASE",
+    pattern: "[a-z]+",
+    flags: "ia",
+    test: "abc ABC İıſK",
+  },
+  {
+    label: "Scoped modes",
+    pattern: "(?i)(?a:k)(?u:k)",
+    flags: "",
+    test: "KK KK KK",
+  },
+  {
+    label: "LF multiline",
+    pattern: "^beta$",
     flags: "m",
-    test: "hello\nworld",
+    test: "alpha\nbeta\nalpha\u2028beta",
   },
   {
     label: "Verbose mode",
@@ -73,29 +104,28 @@ const EXAMPLES: Example[] = [
     test: "Date: 2025-07-11 and 1999-12-31",
   },
   {
-    label: "Lookaround",
-    pattern: "(?<=@)\\w+(?=\\.)",
+    label: "Scoped verbose",
+    pattern: "(?x)a b(?-x: c)",
     flags: "",
-    test: "user@example.com admin@test.org",
+    test: "ab c abc",
   },
   {
-    label: "Inline flags",
-    pattern: "(?i:python)\\s+\\d+",
-    flags: "",
-    test: "Python 3 PYTHON 4 python 5",
+    label: "Brace {,n}",
+    pattern: "^ba{,3}r$",
+    flags: "ma",
+    test: "br\nbar\nbaaar\nbaaaar",
   },
   {
-    label: "IPv4 validator",
-    pattern:
-      "^(?:(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)$",
-    flags: "m",
-    test: "192.168.1.1\n255.255.255.0\n999.0.0.1\n10.0.0.256",
+    label: "Python whitespace",
+    pattern: "\\s+",
+    flags: "",
+    test: "space\u001cmarker\u00a0tab\tend",
   },
   {
-    label: "Nested backrefs",
-    pattern: "((\\w+) \\2) \\1",
+    label: "Unicode group names",
+    pattern: "(?P<名>\\w+)-(?P=名)",
     flags: "",
-    test: "abc abc abc abc  xyz xyz xyz xyz",
+    test: "東京-東京 東京-大阪",
   },
   {
     label: "Lookaround sandwich",
@@ -104,7 +134,7 @@ const EXAMPLES: Example[] = [
     test: "call(arg1) fn(x, y) empty()",
   },
   {
-    label: "Verbose + (?#…)",
+    label: "Verbose URL",
     pattern:
       "(?P<proto>https?)  (?# protocol )\n://                 (?# separator )\n(?P<host>[^/]+)     (?# hostname )\n(?P<path>/\\S*)?     (?# optional path )",
     flags: "x",
@@ -117,11 +147,12 @@ const EXAMPLES: Example[] = [
     test: "aa? bb? cc!",
   },
   {
-    label: "Atomic approximation",
-    pattern: "(?>\\d+)\\.",
-    flags: "",
-    test: "123. 456. abc.",
+    label: "Approximation warnings",
+    pattern: "(?P<word>[a-z]++)@(?>[a-z]++\\.[a-z]++)",
+    flags: "a",
+    test: "user@example.com root@test.org",
     allowAtomicGroupApproximation: true,
+    allowPossessiveQuantifierApproximation: true,
   },
   {
     label: "JS variable lookbehind",
@@ -129,6 +160,12 @@ const EXAMPLES: Example[] = [
     flags: "",
     test: "abf cdef af",
     allowVariableLengthLookbehind: true,
+  },
+  {
+    label: "Error surface",
+    pattern: "\\q",
+    flags: "",
+    test: "q",
   },
 ];
 
@@ -162,6 +199,8 @@ function update() {
 
   errorEl.classList.remove("visible");
   errorEl.textContent = "";
+  warningsEl.classList.remove("visible");
+  warningsEl.textContent = "";
   outputEl.textContent = "";
   currentRegex = null;
 
@@ -171,12 +210,18 @@ function update() {
   }
 
   try {
+    const warnings: string[] = [];
     const literal = ecmaRe(pattern, flags, {
       allowVariableLengthLookbehind: optVariableLookbehind.checked,
       allowAtomicGroupApproximation: optAtomicApprox.checked,
       allowPossessiveQuantifierApproximation: optPossessiveApprox.checked,
+      onWarn: (message) => warnings.push(message),
     });
     outputEl.textContent = literal;
+    if (warnings.length > 0) {
+      warningsEl.textContent = warnings.join("\n");
+      warningsEl.classList.add("visible");
+    }
     currentRegex = regexpFromLiteral(literal);
   } catch (e: unknown) {
     errorEl.textContent = e instanceof Error ? e.message : String(e);

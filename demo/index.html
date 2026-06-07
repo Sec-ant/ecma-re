@@ -4,6 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="data:," />
   <title>ecma-re — Python regex → ES RegExp</title>
   <style>
     *,
@@ -23,6 +24,8 @@
       --surface: #fff;
       --accent: #b45309;
       --accent-bg: #fffbeb;
+      --warning: #b45309;
+      --warning-bg: #fffbeb;
       --error: #dc2626;
       --error-bg: #fef2f2;
       --match1: #fef08a;
@@ -42,6 +45,8 @@
         --surface: #292524;
         --accent: #f59e0b;
         --accent-bg: #292211;
+        --warning: #fbbf24;
+        --warning-bg: #2b2111;
         --error: #f87171;
         --error-bg: #2c1518;
         --match1: #854d0e;
@@ -88,7 +93,8 @@
       margin-top: 1.75rem;
     }
 
-    label {
+    label,
+    .field-label {
       display: block;
       font-size: 0.6875rem;
       font-weight: 600;
@@ -229,6 +235,24 @@
       display: block;
     }
 
+    .warning-box {
+      font-family: var(--mono);
+      font-size: 0.8125rem;
+      line-height: 1.5;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      background: var(--warning-bg);
+      color: var(--warning);
+      margin-top: 0.5rem;
+      display: none;
+      white-space: pre-wrap;
+    }
+
+    .warning-box.visible {
+      display: block;
+    }
+
     /* --- Match highlighting --- */
     .sep {
       border: none;
@@ -357,7 +381,7 @@
     </p>
 
     <div class="section">
-      <label>Examples</label>
+      <div class="field-label">Examples</div>
       <div class="examples" id="examples"></div>
     </div>
 
@@ -389,8 +413,9 @@
     </div>
 
     <div class="section">
-      <label>Output</label>
+      <div class="field-label">Output</div>
       <div class="output-box" id="output"></div>
+      <div class="warning-box" id="warnings"></div>
       <div class="error-box" id="error"></div>
     </div>
 
