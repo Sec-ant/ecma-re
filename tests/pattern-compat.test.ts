@@ -567,6 +567,14 @@ describe("Unicode and ASCII semantics", () => {
     expect(re.test("xcaféx")).toBe(false);
   });
 
+  it("matches non-word boundaries on empty strings like Python 3.14", () => {
+    const unicode = compileEcmaRe("^\\B$");
+    const ascii = compileEcmaRe("^\\B$", "a");
+
+    expect(unicode.test("")).toBe(true);
+    expect(ascii.test("")).toBe(true);
+  });
+
   it("keeps native ASCII word-boundary semantics in ASCII mode", () => {
     const boundary = compileEcmaRe("\\bword\\b", "a");
     const nonBoundary = compileEcmaRe("\\B_\\B", "a");
