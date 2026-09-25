@@ -29,7 +29,7 @@ importers:
         version: 25.9.2
       '@unicode/unicode-16.0.0':
         specifier: ^1.6.16
-        version: 1.6.16
+        version: 1.6.17
       '@vitest/coverage-v8':
         specifier: ^4.1.8
         version: 4.1.8(vitest@4.1.8)
@@ -497,17 +497,21 @@ packages:
     resolution: {integrity: sha512-qmqWa0Fx1xn3irQy8MyuAKUs8e3CdwMJOujaPkM8gx5v/V7RcLhTjBU0/uL2kdhmROpW+5WG1FD98O441kkvQQ==}
     hasBin: true
 
-  '@microsoft/tsdoc-config@0.18.1':
-    resolution: {integrity: sha512-9brPoVdfN9k9g0dcWkFeA7IH9bbcttzDJlXvkf8b2OBzd5MueR1V2wkKBL0abn0otvmkHJC6aapBOTJDDeMCZg==}
+  '@microsoft/tsdoc-config@0.18.2':
+    resolution: {integrity: sha512-4ymuLTQ9lFwJXK15f41iPcNHflymjk02Ltq5f5wo3fA02O1nHIGSc1TIZwzTSQZep+jXHM644jobt4Q8O3vtqg==}
 
   '@microsoft/tsdoc@0.16.0':
     resolution: {integrity: sha512-xgAyonlVVS+q7Vc7qLW0UrJU7rSFcETRWsqdXZtjzRU8dF+6CkozTK4V4y1LwOX7j8r/vHphjDeMeGI4tNGeGA==}
 
-  '@napi-rs/wasm-runtime@1.1.4':
-    resolution: {integrity: sha512-3NQNNgA1YSlJb/kMH1ildASP9HW7/7kYnRI2szWJaofaS1hWmbGI4H+d3+22aGzXXN9IJ+n+GiFVcGipJP18ow==}
+  '@microsoft/tsdoc@0.17.0':
+    resolution: {integrity: sha512-p68VexhnH7ojf3U27RdryUDqnKJgKaWUbCL96vJR7N0mqDuhKG5OIECk3sCPPdynxjk+yoVhRkScqtv5KQjzsw==}
+
+  '@napi-rs/wasm-runtime@1.2.4':
+    resolution: {integrity: sha512-AJxoUD2/15ESHbvpcyjU274nsAPLuOtPHCk0vKJM5pj//Fg/B1FXNWjPnXTT9PymCYYiHo4zPj0ZomXBKhoy7g==}
+    engines: {node: ^20.19.0 || ^22.13.0 || >=23.5.0}
     peerDependencies:
-      '@emnapi/core': ^1.7.1
-      '@emnapi/runtime': ^1.7.1
+      '@emnapi/core': ^1.7.1 || ^2.0.0-alpha.4
+      '@emnapi/runtime': ^1.7.1 || ^2.0.0-alpha.4
 
   '@nodelib/fs.scandir@2.1.5':
     resolution: {integrity: sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==}
@@ -813,8 +817,8 @@ packages:
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
-  '@tybys/wasm-util@0.10.2':
-    resolution: {integrity: sha512-RoBvJ2X0wuKlWFIjrwffGw1IqZHKQqzIchKaadZZfnNpsAYp2mM0h36JtPCjNDAHGgYez/15uMBpfGwchhiMgg==}
+  '@tybys/wasm-util@0.10.4':
+    resolution: {integrity: sha512-W3c4gRigFS0T/Ma4qIYF3GDAc5AQdHb1yL5znJT1Zv1YaD9Kitx656wBjvr19qbiosmZT8lWDM5BEMynUqX65A==}
 
   '@types/argparse@1.0.38':
     resolution: {integrity: sha512-ebDJ9b0e702Yr7pWgB0jzm+CX4Srzz8RcXtLJDJB+BSccqMa36uyH/zUsSYao5+BD1ytv3k3rPYCq4mAE1hsXA==}
@@ -837,8 +841,8 @@ packages:
   '@types/node@25.9.2':
     resolution: {integrity: sha512-G05zqtJhcDLb8uslf5EjCxXg9G1KQxiV8OS0R26IC//Eoyitzqe8z37I7cqvnZlrlSfgocQRfSn/AHBZJJFyGw==}
 
-  '@unicode/unicode-16.0.0@1.6.16':
-    resolution: {integrity: sha512-R2Vxi0XEsCMD9WOQT85O2npa7g+i4RsJ8Xtn+/KODLqa5wH5zCTn5an6JILJhMSfFGD3t3amES2XnvUHnKjMZQ==}
+  '@unicode/unicode-16.0.0@1.6.17':
+    resolution: {integrity: sha512-1NPnfYyjy/FjXmmkxvb9imgccv7O1bnN6QHzD6b8EYqZi3v641xIuTSmrTT7TjNfmjVzjnG+0azgQq/n4S5Rzw==}
 
   '@vitest/coverage-v8@4.1.8':
     resolution: {integrity: sha512-lt3kovsyHwYe00wq4D1ti0Z974fWj4NLp6siqiyEufUpyFwK9Yhi7rBhac9JL5aA0zoMrJqc4vYPZRUnI7l7nw==}
@@ -966,6 +970,10 @@ packages:
   better-path-resolve@1.0.0:
     resolution: {integrity: sha512-pbnl5XzGBdrFU/wT4jqmJVPn2B6UHPBOhzMQkY/SPUPB6QtUXtmBHBIwCbXJol93mOpGMnQyP/+BB19q04xj7g==}
     engines: {node: '>=4'}
+
+  brace-expansion@5.0.12:
+    resolution: {integrity: sha512-YovQ3rzhaLMIrDjNDMkNS01tea93qhEhG5xy8f6+R0l+dw3Ki+5sCoIoI942iuLZTHWogWktgwVDhU09iNEimQ==}
+    engines: {node: 20 || >=22}
 
   brace-expansion@5.0.6:
     resolution: {integrity: sha512-kLpxurY4Z4r9sgMsyG0Z9uzsBlgiU/EFKhj/h91/8yHu0edo7XuixOIH3VcJ8kkxs6/jPzoI6U9Vj3WqbMQ94g==}
@@ -1147,6 +1155,9 @@ packages:
   fast-uri@3.1.2:
     resolution: {integrity: sha512-rVjf7ArG3LTk+FS6Yw81V1DLuZl1bRbNrev6Tmd/9RaroeeRRJhAt7jg/6YFxbvAQXUCavSoZhPPj6oOx+5KjQ==}
 
+  fast-uri@3.1.8:
+    resolution: {integrity: sha512-GZMtZUTNRpOVIECoXwLNZS5xUGE+mVNbTB8h/7Rwh2TFWcBQiPzTgyZi05BF9UMZKkLJv8XBRJTlU7zg8+ZfMg==}
+
   fastq@1.20.1:
     resolution: {integrity: sha512-GGToxJ/w1x32s/D2EKND7kTil4n8OVk/9mycTc4VDza13lOvpUZTGX3mFSCtV9ksdGBVzvsyAVLM6mHFThxXxw==}
 
@@ -1173,8 +1184,8 @@ packages:
   flatted@3.4.2:
     resolution: {integrity: sha512-PjDse7RzhcPkIJwy5t7KPWQSZ9cAbzQXcafsetQoD7sOJRQlGikNbx7yZp2OotDnJyrDcbyRq3Ttb18iYOqkxA==}
 
-  fs-extra@11.3.5:
-    resolution: {integrity: sha512-eKpRKAovdpZtR1WopLHxlBWvAgPny3c4gX1G5Jhwmmw4XJj0ifSD5qB5TOo8hmA0wlRKDAOAhEE1yVPgs6Fgcg==}
+  fs-extra@11.3.6:
+    resolution: {integrity: sha512-w8ZNZr2mKIc7qeNaQ9AVPT1+iFaI+Avd4xudVOvdDJ8VytREi1Ft5Ih7hd9jjehod8vAM5GMsfQ/TpPf4EyoEA==}
     engines: {node: '>=14.14'}
 
   fs-extra@7.0.1:
@@ -1204,6 +1215,7 @@ packages:
   git-raw-commits@5.0.1:
     resolution: {integrity: sha512-Y+csSm2GD/PCSh6Isd/WiMjNAydu0VBiG9J7EdQsNA5P9uXvLayqjmTsNlK5Gs9IhblFZqOU0yid5Il5JPoLiQ==}
     engines: {node: '>=18'}
+    deprecated: Deprecated and no longer maintained. Use @conventional-changelog/git-client instead.
     hasBin: true
 
   glob-parent@5.1.2:
@@ -1263,8 +1275,8 @@ packages:
   is-arrayish@0.2.1:
     resolution: {integrity: sha512-zz06S8t0ozoDXMG+ube26zeCTNXcKIPJZJi8hBrF4idCLms4CG9QtK7qBl1boi5ODzFpjswb5JPmHCbMpjaYzg==}
 
-  is-core-module@2.16.2:
-    resolution: {integrity: sha512-evOr8xfXKxE6qSR0hSXL2r3sd7ALj8+7jQEUvPYcm5sgZFdJ+AYzT6yNmJenvIYQBgIGwfwz08sL8zoL7yq2BA==}
+  is-core-module@2.17.0:
+    resolution: {integrity: sha512-J/vG0zBCbIKOQFfufSwyXdMrsohyJIUNkrnmo6WZGzoM7tr/lsbfW5b2BvisL6zsyMzK9UxV9L6c7AoFbyXHOA==}
     engines: {node: '>= 0.4'}
 
   is-extglob@2.1.1:
@@ -2487,7 +2499,7 @@ snapshots:
   '@microsoft/api-extractor-model@7.33.6(@types/node@25.9.2)':
     dependencies:
       '@microsoft/tsdoc': 0.16.0
-      '@microsoft/tsdoc-config': 0.18.1
+      '@microsoft/tsdoc-config': 0.18.2
       '@rushstack/node-core-library': 5.22.0(@types/node@25.9.2)
     transitivePeerDependencies:
       - '@types/node'
@@ -2497,7 +2509,7 @@ snapshots:
     dependencies:
       '@microsoft/api-extractor-model': 7.33.6(@types/node@25.9.2)
       '@microsoft/tsdoc': 0.16.0
-      '@microsoft/tsdoc-config': 0.18.1
+      '@microsoft/tsdoc-config': 0.18.2
       '@rushstack/node-core-library': 5.22.0(@types/node@25.9.2)
       '@rushstack/rig-package': 0.7.2
       '@rushstack/terminal': 0.22.5(@types/node@25.9.2)
@@ -2513,9 +2525,9 @@ snapshots:
       - '@types/node'
     optional: true
 
-  '@microsoft/tsdoc-config@0.18.1':
+  '@microsoft/tsdoc-config@0.18.2':
     dependencies:
-      '@microsoft/tsdoc': 0.16.0
+      '@microsoft/tsdoc': 0.17.0
       ajv: 8.18.0
       jju: 1.4.0
       resolve: 1.22.12
@@ -2524,11 +2536,14 @@ snapshots:
   '@microsoft/tsdoc@0.16.0':
     optional: true
 
-  '@napi-rs/wasm-runtime@1.1.4(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)':
+  '@microsoft/tsdoc@0.17.0':
+    optional: true
+
+  '@napi-rs/wasm-runtime@1.2.4(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)':
     dependencies:
       '@emnapi/core': 1.10.0
       '@emnapi/runtime': 1.10.0
-      '@tybys/wasm-util': 0.10.2
+      '@tybys/wasm-util': 0.10.4
     optional: true
 
   '@nodelib/fs.scandir@2.1.5':
@@ -2587,7 +2602,7 @@ snapshots:
     dependencies:
       '@emnapi/core': 1.10.0
       '@emnapi/runtime': 1.10.0
-      '@napi-rs/wasm-runtime': 1.1.4(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)
+      '@napi-rs/wasm-runtime': 1.2.4(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)
     optional: true
 
   '@rolldown/binding-win32-arm64-msvc@1.0.3':
@@ -2686,7 +2701,7 @@ snapshots:
       ajv: 8.18.0
       ajv-draft-04: 1.0.0(ajv@8.18.0)
       ajv-formats: 3.0.1(ajv@8.18.0)
-      fs-extra: 11.3.5
+      fs-extra: 11.3.6
       import-lazy: 4.0.0
       jju: 1.4.0
       resolve: 1.22.12
@@ -2733,7 +2748,7 @@ snapshots:
 
   '@standard-schema/spec@1.1.0': {}
 
-  '@tybys/wasm-util@0.10.2':
+  '@tybys/wasm-util@0.10.4':
     dependencies:
       tslib: 2.8.1
     optional: true
@@ -2759,7 +2774,7 @@ snapshots:
     dependencies:
       undici-types: 7.24.6
 
-  '@unicode/unicode-16.0.0@1.6.16': {}
+  '@unicode/unicode-16.0.0@1.6.17': {}
 
   '@vitest/coverage-v8@4.1.8(vitest@4.1.8)':
     dependencies:
@@ -2854,7 +2869,7 @@ snapshots:
   ajv@8.18.0:
     dependencies:
       fast-deep-equal: 3.1.3
-      fast-uri: 3.1.2
+      fast-uri: 3.1.8
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
     optional: true
@@ -2901,6 +2916,11 @@ snapshots:
   better-path-resolve@1.0.0:
     dependencies:
       is-windows: 1.0.2
+
+  brace-expansion@5.0.12:
+    dependencies:
+      balanced-match: 4.0.4
+    optional: true
 
   brace-expansion@5.0.6:
     dependencies:
@@ -3080,6 +3100,9 @@ snapshots:
 
   fast-uri@3.1.2: {}
 
+  fast-uri@3.1.8:
+    optional: true
+
   fastq@1.20.1:
     dependencies:
       reusify: 1.1.0
@@ -3101,7 +3124,7 @@ snapshots:
 
   flatted@3.4.2: {}
 
-  fs-extra@11.3.5:
+  fs-extra@11.3.6:
     dependencies:
       graceful-fs: 4.2.11
       jsonfile: 6.2.1
@@ -3192,7 +3215,7 @@ snapshots:
 
   is-arrayish@0.2.1: {}
 
-  is-core-module@2.16.2:
+  is-core-module@2.17.0:
     dependencies:
       hasown: 2.0.4
     optional: true
@@ -3394,7 +3417,7 @@ snapshots:
 
   minimatch@10.2.3:
     dependencies:
-      brace-expansion: 5.0.6
+      brace-expansion: 5.0.12
     optional: true
 
   minimatch@10.2.5:
@@ -3525,7 +3548,7 @@ snapshots:
   resolve@1.22.12:
     dependencies:
       es-errors: 1.3.0
-      is-core-module: 2.16.2
+      is-core-module: 2.17.0
       path-parse: 1.0.7
       supports-preserve-symlinks-flag: 1.0.0
     optional: true
